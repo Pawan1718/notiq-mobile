@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'inbox_repository.dart';
 import 'inbox_models.dart';
+import 'inbox_details_sheet.dart';
+import 'package:intl/intl.dart';
 import '../../core/realtime/inbox_realtime_service.dart';
 
 class InboxPage extends ConsumerStatefulWidget {
@@ -20,6 +22,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
   @override
   void initState() {
     super.initState();
+    currentConversation = widget.initialConversation;
     realtimeSubscription = ref.listenManual(inboxRealtimeProvider, (_, next) {
       if (next.valueOrNull != null && mounted) {
         ref.invalidate(inboxPageProvider(page));
@@ -178,7 +181,8 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                               : const Icon(Icons.chevron_right_rounded),
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(builder: (_) => ConversationPage(
-                              conversationId: item.id, title: name)),
+                              conversationId: item.id, title: name,
+                              initialConversation: item)),
                           ),
                         );
                       },
@@ -222,10 +226,11 @@ class _InboxPageState extends ConsumerState<InboxPage> {
 
 class ConversationPage extends ConsumerStatefulWidget {
   const ConversationPage({
-    super.key, required this.conversationId, required this.title,
+    super.key, required this.conversationId, required this.title, this.initialConversation,
   });
   final int conversationId;
   final String title;
+  final InboxConversation? initialConversation;
   @override
   ConsumerState<ConversationPage> createState() => _ConversationPageState();
 }
@@ -235,6 +240,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
   bool sending = false;
   bool markingRead = false;
   String? error;
+  InboxConversation? currentConversation;
   late final ProviderSubscription<AsyncValue<InboxRealtimeEvent>> realtimeSubscription;
 
   @override
@@ -255,6 +261,80 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     realtimeSubscription.close();
     controller.dispose();
     super.dispose();
+  }
+
+  Future<void> openDetails() async {
+    final conversation = currentConversation;
+    if (conversation == null) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: .82,
+        child: InboxDetailsSheet(
+          conversation: conversation,
+          onUpdated: (updated) {
+            if (mounted) setState(() => currentConversation = updated);
+            ref.invalidate(inboxPageProvider(1));
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> insertQuickReply() async {
+    final replies = await showModalBottomSheet<InboxQuickReply>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Consumer(builder: (context, ref, _) {
+          final result = ref.watch(inboxQuickRepliesProvider);
+          return result.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (_, __) => Center(child: TextButton(
+              onPressed: () => ref.invalidate(inboxQuickRepliesProvider),
+              child: const Text('Retry loading quick replies'),
+            )),
+            data: (items) => ListView(
+              shrinkWrap: true,
+              children: [
+                const ListTile(title: Text('Quick replies')),
+                ...items.map((reply) => ListTile(
+                  title: Text(reply.title),
+                  subtitle: Text(reply.body, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  onTap: () => Navigator.pop(context, reply),
+                )),
+                if (items.isEmpty) const ListTile(title: Text('No quick replies yet')),
+              ],
+            ),
+          );
+        }),
+      ),
+    );
+    if (replies == null || !mounted) return;
+    if (controller.text.trim().isNotEmpty) {
+      final replace = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Replace your draft?'),
+          content: const Text('Your current message will be replaced with this saved reply.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Replace'),
+            ),
+          ],
+        ),
+      );
+      if (replace != true || !mounted) return;
+    }
+    controller.text = replies.body;
+    controller.selection = TextSelection.collapsed(offset: controller.text.length);
   }
 
   Future<void> sendReply() async {
@@ -318,6 +398,11 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
         ]),
         actions: [
           IconButton(
+            tooltip: 'Conversation details',
+            icon: const Icon(Icons.tune_rounded),
+            onPressed: currentConversation == null ? null : openDetails,
+          ),
+          IconButton(
             tooltip: 'Mark as read',
             icon: const Icon(Icons.mark_email_read_outlined),
             onPressed: markingRead ? null : markRead,
@@ -331,6 +416,20 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       ),
       body: SafeArea(
         child: Column(children: [
+          if (currentConversation != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+              child: Wrap(spacing: 6, runSpacing: 6, children: [
+                Chip(label: Text(switch (currentConversation!.status) {
+                  2 => 'Resolved',
+                  3 => 'Pending',
+                  _ => 'Open',
+                })),
+                Chip(label: Text(currentConversation!.mode == 2 ? 'Human' : 'Bot')),
+                if (currentConversation!.assignedUserName?.isNotEmpty == true)
+                  Chip(label: Text(currentConversation!.assignedUserName!)),
+              ]),
+            ),
           if (error != null)
             MaterialBanner(
               content: Text(error!),
@@ -376,13 +475,30 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 14, vertical: 11),
-                                child: Text(
-                                  message.content.isEmpty
-                                      ? '[Non-text message]' : message.content,
-                                  style: TextStyle(
-                                    color: outbound ? colors.onPrimary : colors.onSurface,
-                                    height: 1.35,
-                                  ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      message.content.isEmpty
+                                          ? '[Non-text message]' : message.content,
+                                      style: TextStyle(
+                                        color: outbound ? colors.onPrimary : colors.onSurface,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                    if (message.createdAt != null) ...[
+                                      const SizedBox(height: 5),
+                                      Text(
+                                        DateFormat('h:mm a').format(message.createdAt!.toLocal()),
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: outbound
+                                              ? colors.onPrimary.withValues(alpha: .78)
+                                              : colors.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
                             ),
@@ -399,6 +515,11 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
               border: Border(top: BorderSide(color: theme.dividerColor)),
             ),
             child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              IconButton(
+                tooltip: 'Quick replies',
+                onPressed: sending ? null : insertQuickReply,
+                icon: const Icon(Icons.bolt_outlined),
+              ),
               Expanded(child: TextField(
                 controller: controller,
                 enabled: !sending,
