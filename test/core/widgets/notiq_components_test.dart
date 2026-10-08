@@ -37,8 +37,8 @@ void main() {
       ),
     ));
 
-    final previous = find.byTooltip('Previous page');
-    final next = find.byTooltip('Next page');
+    final previous = find.widgetWithIcon(IconButton, Icons.chevron_left);
+    final next = find.widgetWithIcon(IconButton, Icons.chevron_right);
     expect(tester.widget<IconButton>(previous).onPressed, isNull);
     await tester.tap(next);
     expect(selected, 2);
