@@ -4,7 +4,7 @@ import 'api_config.dart';
 import 'api_response.dart';
 
 class ApiClient {
-  ApiClient(this._session)
+  ApiClient(this._session, {this.onSessionExpired})
       : dio = Dio(BaseOptions(
           baseUrl: ApiConfig.baseUrl,
           connectTimeout: const Duration(seconds: 15),
@@ -16,19 +16,25 @@ class ApiClient {
         .add(InterceptorsWrapper(onRequest: (options, handler) async {
       if (options.extra['noAuth'] != true) {
         final token = await _session.readValidToken();
-        if (token != null) options.headers['Authorization'] = 'Bearer $token';
+        if (token == null) {
+          await onSessionExpired?.call();
+          return handler.reject(DioException(requestOptions: options, type: DioExceptionType.cancel, error: 'Session expired.'));
+        }
+        options.headers['Authorization'] = 'Bearer $token';
       }
       handler.next(options);
     }, onResponse: (response, handler) async {
       if (response.statusCode == 401 &&
           response.requestOptions.extra['noAuth'] != true) {
         await _session.clear();
+        await onSessionExpired?.call();
       }
       handler.next(response);
     }));
   }
 
   final SecureSessionStore _session;
+  final Future<void> Function()? onSessionExpired;
   final Dio dio;
 
   Future<ApiResponse<T>> mutate<T>(
@@ -52,7 +58,8 @@ class ApiClient {
             statusCode: response.statusCode);
       }
       return result;
-    } on DioException catch (_) {
+    } on DioException catch (error) {
+      if (error.type == DioExceptionType.cancel) throw const ApiFailure('Session expired. Please sign in again.', statusCode: 401);
       throw const ApiFailure('Unable to send request. Check your connection.');
     }
   }
@@ -72,7 +79,8 @@ class ApiClient {
             statusCode: response.statusCode);
       }
       return result;
-    } on DioException catch (_) {
+    } on DioException catch (error) {
+      if (error.type == DioExceptionType.cancel) throw const ApiFailure('Session expired. Please sign in again.', statusCode: 401);
       throw const ApiFailure('Unable to load data. Check your connection.');
     }
   }
