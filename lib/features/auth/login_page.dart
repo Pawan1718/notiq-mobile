@@ -70,7 +70,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 setState(() => _obscure = !_obscure),
                             icon: Icon(_obscure
                                 ? Icons.visibility
-                                : Icons.visibility_off))),
+                                : Icons.visibility_off)),
                     validator: (v) =>
                         (v?.length ?? 0) >= 8 ? null : 'Minimum 8 characters'),
                 const SizedBox(height: 20),
