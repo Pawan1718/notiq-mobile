@@ -12,6 +12,28 @@ final contactRepositoryProvider = Provider<ContactRepository>(
 class ContactRepository {
   const ContactRepository(this.api);
   final ApiClient api;
+  Future<List<Map<String,dynamic>>> lookup(String type) async {
+    final response = await api.get<List<Map<String,dynamic>>>(
+      '$contactsPath/$type',
+      (data) => (data as List<dynamic>).map((v) => Map<String,dynamic>.from(v as Map)).toList(),
+    );
+    return response.data ?? [];
+  }
+
+  Future<void> createLookup(String type, Map<String,dynamic> payload) async {
+    await api.mutate<Object?>('$contactsPath/$type', 'POST', (v) => v, payload: payload);
+  }
+
+  Future<Map<String,dynamic>> importContacts(Map<String,dynamic> payload,
+      {required bool confirm}) async {
+    final result = await api.mutate<Map<String,dynamic>>(
+      '$contactsPath/import/mobile-${confirm ? 'confirm' : 'preview'}',
+      'POST', (v) => Map<String,dynamic>.from(v as Map), payload: payload,
+    );
+    if (result.data == null) throw const FormatException('Import response missing');
+    return result.data!;
+  }
+
   Future<ContactPage> list({int page = 1, String search = ''}) async {
     final query = Uri(queryParameters: {
       'pageNumber': '$page',
@@ -52,3 +74,8 @@ final contactDetailProvider =
     FutureProvider.autoDispose.family<ContactDetail, int>(
   (ref, id) => ref.read(contactRepositoryProvider).detail(id),
 );
+
+final contactGroupsProvider = FutureProvider.autoDispose<List<Map<String,dynamic>>>(
+ (ref) => ref.read(contactRepositoryProvider).lookup('groups'));
+final contactTagsProvider = FutureProvider.autoDispose<List<Map<String,dynamic>>>(
+ (ref) => ref.read(contactRepositoryProvider).lookup('tags'));
