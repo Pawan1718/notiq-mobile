@@ -4,12 +4,14 @@ class InboxConversation {
       required this.contactName,
       required this.phoneNumber,
       required this.preview,
-      required this.unreadCount});
+      required this.unreadCount, required this.mode});
   final int id;
   final String contactName;
   final String phoneNumber;
   final String preview;
   final int unreadCount;
+  /// Backend ConversationMode: Bot=1, Human=2.
+  final int mode;
 
   factory InboxConversation.fromJson(Object? data) {
     if (data is! Map<String, dynamic>) {
@@ -21,6 +23,8 @@ class InboxConversation {
       phoneNumber: data['phoneNumber']?.toString() ?? '',
       preview: data['lastMessagePreview']?.toString() ?? '',
       unreadCount: (data['unreadCount'] as num?)?.toInt() ?? 0,
+      mode: data['mode'] is num ? (data['mode'] as num).toInt() :
+          (data['mode']?.toString().toLowerCase() == 'human' ? 2 : 1),
     );
   }
 }
@@ -44,10 +48,12 @@ class InboxPageResult {
 
 class InboxMessage {
   const InboxMessage(
-      {required this.id, required this.content, required this.direction});
+      {required this.id, required this.content, required this.direction, this.senderType, this.status});
   final int id;
   final String content;
   final Object? direction;
+  final Object? senderType;
+  final Object? status;
   factory InboxMessage.fromJson(Object? data) {
     if (data is! Map<String, dynamic>) {
       throw const FormatException('Invalid message');
@@ -56,6 +62,8 @@ class InboxMessage {
       id: (data['id'] as num).toInt(),
       content: data['content']?.toString() ?? '',
       direction: data['direction'],
+      senderType: data['senderType'],
+      status: data['status'],
     );
   }
 }

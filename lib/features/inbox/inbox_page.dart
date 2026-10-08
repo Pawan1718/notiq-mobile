@@ -11,6 +11,7 @@ class InboxPage extends ConsumerStatefulWidget {
 
 class _InboxPageState extends ConsumerState<InboxPage> {
   int page = 1;
+  ProviderSubscription<AsyncValue<InboxRealtimeEvent>>? _subscription;
 
   @override
   void initState() {
@@ -20,7 +21,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
 
   void _observeRealtime() {
     // Keep a single authenticated connection alive while inbox is visible.
-    ref.listenManual(inboxRealtimeProvider, (_, next) {
+    _subscription = ref.listenManual(inboxRealtimeProvider, (_, next) {
       final event = next.valueOrNull;
       if (event == null || !mounted) return;
       ref.invalidate(inboxPageProvider(page));
@@ -28,7 +29,14 @@ class _InboxPageState extends ConsumerState<InboxPage> {
   }
 
   @override
+  void dispose() {
+    _subscription?.close();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    ref.watch(inboxRealtimeProvider);
     final result = ref.watch(inboxPageProvider(page));
     return Scaffold(
       appBar: AppBar(title: const Text('WhatsApp Inbox'), actions: [
@@ -57,16 +65,20 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                               : item.contactName),
                           subtitle: Text(item.preview,
                               maxLines: 1, overflow: TextOverflow.ellipsis),
-                          trailing: item.unreadCount > 0
-                              ? CircleAvatar(
-                                  radius: 13,
-                                  child: Text('${item.unreadCount}',
-                                      style: const TextStyle(fontSize: 11)))
-                              : null,
+                          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(item.mode == 2 ? Icons.support_agent : Icons.smart_toy_outlined,
+                              size: 18, semanticLabel: item.mode == 2 ? 'Human' : 'KRAG AI'),
+                            if (item.unreadCount > 0) ...[
+                              const SizedBox(width: 8),
+                              CircleAvatar(radius: 13, child: Text('${item.unreadCount}',
+                                style: const TextStyle(fontSize: 11))),
+                            ],
+                          ]),
                           onTap: () => Navigator.of(context).push(
                               MaterialPageRoute<void>(
                                   builder: (_) => ConversationPage(
                                       conversationId: item.id,
+                                      initialMode: item.mode,
                                       title: item.contactName.isEmpty
                                           ? item.phoneNumber
                                           : item.contactName))),
@@ -92,8 +104,9 @@ class _InboxPageState extends ConsumerState<InboxPage> {
 
 class ConversationPage extends ConsumerStatefulWidget {
   const ConversationPage(
-      {super.key, required this.conversationId, required this.title});
+      {super.key, required this.conversationId, required this.title, required this.initialMode});
   final int conversationId;
+  final int initialMode;
   final String title;
   @override
   ConsumerState<ConversationPage> createState() => _ConversationPageState();
@@ -103,6 +116,8 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
   final controller = TextEditingController();
   bool sending = false;
   bool markingRead = false;
+  bool switchingMode = false;
+  int? currentMode;
   String? error;
   late final ProviderSubscription<AsyncValue<InboxRealtimeEvent>>
       realtimeSubscription;
@@ -116,6 +131,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       if (event.conversationId == null ||
           event.conversationId == widget.conversationId) {
         ref.invalidate(inboxMessagesProvider(widget.conversationId));
+        ref.invalidate(inboxPageProvider(1));
       }
     });
   }
@@ -125,6 +141,21 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     realtimeSubscription.close();
     controller.dispose();
     super.dispose();
+  }
+
+  Future<void> changeMode(int mode) async {
+    if (switchingMode || currentMode == mode) return;
+    setState(() { switchingMode = true; error = null; });
+    try {
+      final updated = await ref.read(inboxRepositoryProvider)
+          .setMode(widget.conversationId, mode);
+      if (mounted) setState(() => currentMode = updated.mode);
+      ref.invalidate(inboxPageProvider(1));
+    } catch (_) {
+      if (mounted) setState(() => error = 'Could not change conversation mode.');
+    } finally {
+      if (mounted) setState(() => switchingMode = false);
+    }
   }
 
   Future<void> sendReply() async {
@@ -166,6 +197,11 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(inboxRealtimeProvider);
+    final inbox = ref.watch(inboxPageProvider(1));
+    final conversation = inbox.valueOrNull?.items.where(
+      (item) => item.id == widget.conversationId).firstOrNull;
+    final mode = currentMode ?? conversation?.mode ?? widget.initialMode;
     final messages = ref.watch(inboxMessagesProvider(widget.conversationId));
     return Scaffold(
       appBar: AppBar(title: Text(widget.title), actions: [
@@ -181,6 +217,18 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       ]),
       body: SafeArea(
           child: Column(children: [
+        if (mode != null)
+          ListTile(
+            leading: Icon(mode == 2 ? Icons.support_agent : Icons.smart_toy_outlined),
+            title: Text(mode == 2 ? 'Human takeover active' : 'KRAG AI auto-reply mode'),
+            subtitle: Text(mode == 2 ? 'Agent handles replies' : 'Bot handles incoming messages'),
+            trailing: switchingMode
+                ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))
+                : TextButton(
+                    onPressed: () => changeMode(mode == 2 ? 1 : 2),
+                    child: Text(mode == 2 ? 'Return to AI' : 'Take over'),
+                  ),
+          ),
         if (error != null)
           Padding(
               padding: const EdgeInsets.all(8),
@@ -205,6 +253,10 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                     final outbound = message.direction == 2 ||
                         message.direction?.toString().toLowerCase() ==
                             'outbound';
+                    final sender = message.senderType;
+                    final senderLabel = sender == 2 || sender.toString().toLowerCase() == 'bot'
+                        ? 'KRAG AI' : sender == 3 || sender.toString().toLowerCase() == 'agent'
+                            ? 'Agent' : outbound ? 'Outgoing' : 'Customer';
                     return Align(
                       alignment: outbound
                           ? Alignment.centerRight
@@ -212,9 +264,12 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                       child: Card(
                           child: Padding(
                               padding: const EdgeInsets.all(12),
-                              child: Text(message.content.isEmpty
-                                  ? '[Non-text message]'
-                                  : message.content))),
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min, children: [
+                                  Text(senderLabel, style: Theme.of(context).textTheme.labelSmall),
+                                  const SizedBox(height: 4),
+                                  Text(message.content.isEmpty ? '[Non-text message]' : message.content),
+                                ]))),
                     );
                   },
                 ),
@@ -225,7 +280,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
               Expanded(
                   child: TextField(
                 controller: controller,
-                enabled: !sending,
+                enabled: !sending && !switchingMode && mode == 2,
                 maxLines: 3,
                 minLines: 1,
                 textCapitalization: TextCapitalization.sentences,
@@ -234,7 +289,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
               const SizedBox(width: 8),
               IconButton(
                 tooltip: 'Send reply',
-                onPressed: sending ? null : sendReply,
+                onPressed: sending || switchingMode || mode != 2 ? null : sendReply,
                 icon: sending
                     ? const SizedBox(
                         width: 20,

@@ -37,6 +37,18 @@ class InboxRepository {
     return response.data!;
   }
 
+  Future<InboxConversation> setMode(int id, int mode) async {
+    if (mode != 1 && mode != 2) throw ArgumentError.value(mode, 'mode');
+    final response = await _api.mutate<InboxConversation>(
+      '$inboxBasePath/$id/mode',
+      'PUT',
+      InboxConversation.fromJson,
+      payload: {'mode': mode},
+    );
+    if (response.data == null) throw const FormatException('Mode response missing');
+    return response.data!;
+  }
+
   Future<InboxConversation> markRead(int id) async {
     final response = await _api.mutate<InboxConversation>(
       '$inboxBasePath/$id/read',
