@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/widgets/notiq_pagination.dart';
 import 'campaign_repository.dart';
 import 'campaign_draft_page.dart';
 
@@ -77,22 +78,11 @@ class _CampaignsPageState extends ConsumerState<CampaignsPage> {
                         ),
                       if (data.items.isEmpty)
                         const ListTile(title: Text('No campaigns found')),
-                      Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            IconButton(
-                                onPressed: page > 1
-                                    ? () => setState(() => page--)
-                                    : null,
-                                icon: const Icon(Icons.chevron_left)),
-                            Text('Page $page of ${data.totalPages}'),
-                            IconButton(
-                                onPressed: page < data.totalPages
-                                    ? () => setState(() => page++)
-                                    : null,
-                                icon: const Icon(Icons.chevron_right)),
-                          ]),
-                    ]))),
+                      NotiqPagination(
+                        page: page,
+                        totalPages: data.totalPages,
+                        onPageChanged: (next) => setState(() => page = next),
+                      ),                    ]))),
       ]),
     );
   }
