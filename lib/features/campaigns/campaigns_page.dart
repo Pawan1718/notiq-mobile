@@ -341,17 +341,52 @@ class _CampaignDetailPageState extends ConsumerState<CampaignDetailPage> {
           data: (item) =>
               ListView(padding: const EdgeInsets.all(16), children: [
             Text(item.name, style: Theme.of(context).textTheme.headlineSmall),
-            Text('Status: ${item.status}'),
-            for (final key in [
-              'totalRecipients',
-              'queuedCount',
-              'sentCount',
-              'failedCount',
-              'deliveredCount',
-              'readCount'
-            ])
-              ListTile(
-                  title: Text(key), trailing: Text('${number(item.raw[key])}')),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Chip(label: Text(item.status)),
+            ),
+            const SizedBox(height: 20),
+            Text('Delivery overview',
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final metric in [
+                  ('Recipients', 'totalRecipients'),
+                  ('Queued', 'queuedCount'),
+                  ('Sent', 'sentCount'),
+                  ('Delivered', 'deliveredCount'),
+                  ('Read', 'readCount'),
+                  ('Failed', 'failedCount'),
+                ])
+                  SizedBox(
+                    width: (MediaQuery.sizeOf(context).width - 42) / 2,
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('${number(item.raw[metric.$2])}',
+                                style: Theme.of(context).textTheme.headlineSmall),
+                            const SizedBox(height: 5),
+                            Text(metric.$1,
+                                style: Theme.of(context).textTheme.bodySmall),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 22),
+            Text('Manage campaign',
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
             if (error != null)
               Text(error!,
                   style: TextStyle(color: Theme.of(context).colorScheme.error)),
