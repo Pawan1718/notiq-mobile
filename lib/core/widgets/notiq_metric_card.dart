@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// A compact, accessible metric surface for server-provided counts and costs.
+/// Compact server-backed metric surface shared by dashboard sections.
 class NotiqMetricCard extends StatelessWidget {
   const NotiqMetricCard({
     super.key,
@@ -17,15 +17,26 @@ class NotiqMetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Icon(icon, color: theme.colorScheme.primary, size: 24),
-            const SizedBox(width: 12),
-            Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
-            const SizedBox(width: 8),
-            Text(value, style: theme.textTheme.titleLarge),
+            Icon(icon, color: theme.colorScheme.primary, size: 21),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.headlineSmall,
+            ),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall,
+            ),
           ],
         ),
       ),
