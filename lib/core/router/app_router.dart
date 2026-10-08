@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../auth/auth_controller.dart';
+import 'notiq_app_shell.dart';
 import '../../features/auth/login_page.dart';
 import '../../features/dashboard/dashboard_page.dart';
 import '../../features/inbox/inbox_page.dart';
@@ -11,9 +12,8 @@ import '../../features/campaigns/campaigns_page.dart';
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = ValueNotifier<int>(0);
   ref.listen(authProvider, (_, __) => notifier.value++);
-  ref.onDispose(() {
-    notifier.dispose();
-  });
+  ref.onDispose(notifier.dispose);
+
   final router = GoRouter(
     initialLocation: '/dashboard',
     refreshListenable: notifier,
@@ -30,14 +30,30 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(
-          path: '/loading',
-          builder: (_, __) =>
-              const Scaffold(body: Center(child: CircularProgressIndicator()))),
+        path: '/loading',
+        builder: (_, __) => const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      ),
       GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
-      GoRoute(path: '/dashboard', builder: (_, __) => const DashboardPage()),
-      GoRoute(path: '/inbox', builder: (_, __) => const InboxPage()),
-      GoRoute(path: '/contacts', builder: (_, __) => const ContactsPage()),
-      GoRoute(path: '/campaigns', builder: (_, __) => const CampaignsPage()),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            NotiqAppShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/dashboard', builder: (_, __) => const DashboardPage()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/inbox', builder: (_, __) => const InboxPage()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/campaigns', builder: (_, __) => const CampaignsPage()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/contacts', builder: (_, __) => const ContactsPage()),
+          ]),
+        ],
+      ),
     ],
   );
   ref.onDispose(router.dispose);
