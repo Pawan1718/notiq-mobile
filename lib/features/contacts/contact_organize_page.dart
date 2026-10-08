@@ -56,8 +56,10 @@ class ContactOrganizePage extends ConsumerWidget {
             });
             ref.invalidate(provider);
           } catch (_) {
-            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Unable to create. Please retry.')));
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Unable to create. Please retry.')));
+            }
           } finally {
             name.dispose();
             description.dispose();
@@ -102,8 +104,10 @@ class _ContactImportPageState extends ConsumerState<ContactImportPage> {
       final data = await ref.read(contactRepositoryProvider).importContacts(payload, confirm: confirm);
       if (!mounted) return;
       setState(() => preview = data);
-      if (confirm) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Imported ${data['importedCount'] ?? 0} contacts')));
+      if (confirm) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Imported ${data['importedCount'] ?? 0} contacts')));
+      }
     } catch (_) {
       if (mounted) setState(() => error = 'Import failed. Check input and retry.');
     } finally {
