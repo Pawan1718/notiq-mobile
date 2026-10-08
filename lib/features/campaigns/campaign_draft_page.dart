@@ -179,7 +179,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
             title: Text(scheduledAtUtc == null ? 'Send when published'
               : 'Scheduled: ${scheduledAtUtc!.toLocal()}'),
             subtitle: const Text('Publish performs the final scheduling validation.'),
-            trailing: Wrap(mainAxisSize: MainAxisSize.min, children: [
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
               IconButton(
                 tooltip: 'Set schedule',
                 icon: const Icon(Icons.edit_calendar_outlined),
