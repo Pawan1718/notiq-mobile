@@ -156,9 +156,9 @@ class _ContactEditorPageState extends ConsumerState<ContactEditorPage> {
       mobile = TextEditingController(),
       whatsapp = TextEditingController(),
       email = TextEditingController();
-  bool sms = true,
-      whatsApp = true,
-      emailAllowed = true,
+  bool sms = false,
+      whatsApp = false,
+      emailAllowed = false,
       saving = false,
       loaded = false;
   String? error;
