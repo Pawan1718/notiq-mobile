@@ -82,7 +82,8 @@ class _CampaignsPageState extends ConsumerState<CampaignsPage> {
                         page: page,
                         totalPages: data.totalPages,
                         onPageChanged: (next) => setState(() => page = next),
-                      ),                    ]))),
+                      ),
+                    ]))),
       ]),
     );
   }
