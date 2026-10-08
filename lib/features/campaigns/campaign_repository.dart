@@ -71,6 +71,16 @@ class RecipientReport {
 class CampaignRepository {
   CampaignRepository(this._api);
   final ApiClient _api;
+  Future<List<Map<String, dynamic>>> lookup(String path) async {
+    final result = await _api.get<List<Map<String, dynamic>>>(
+      path,
+      (value) => (value as List<dynamic>)
+          .map((entry) => Map<String, dynamic>.from(entry as Map))
+          .toList(),
+    );
+    return result.data ?? const [];
+  }
+
   Future<CampaignPage> list({int page = 1, String search = ''}) async {
     final query = Uri(queryParameters: {
       'pageNumber': '$page',
@@ -137,4 +147,14 @@ final campaignRecipientsProvider =
     FutureProvider.autoDispose.family<RecipientReport, ({int id, int page})>(
   (ref, args) =>
       ref.read(campaignRepositoryProvider).recipients(args.id, page: args.page),
+);
+
+final campaignGroupsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>(
+  (ref) => ref.read(campaignRepositoryProvider).lookup('/api/communication/contacts/groups'),
+);
+final campaignProvidersProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>(
+  (ref) => ref.read(campaignRepositoryProvider).lookup('/api/communication/provider-settings'),
+);
+final campaignTemplatesProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>(
+  (ref) => ref.read(campaignRepositoryProvider).lookup('/api/communication/templates'),
 );
