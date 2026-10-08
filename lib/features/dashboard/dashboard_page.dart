@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_controller.dart';
+import '../../core/theme/notiq_brand.dart';
 import 'dashboard_repository.dart';
 
 class DashboardPage extends ConsumerWidget {
@@ -11,7 +12,7 @@ class DashboardPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final metrics = ref.watch(dashboardMetricsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Notiq Dashboard'), actions: [
+      appBar: AppBar(title: const NotiqBrand(compact: true), actions: [
         IconButton(
             tooltip: 'Campaigns',
             icon: const Icon(Icons.campaign_outlined),
