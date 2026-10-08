@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'inbox_repository.dart';
 import '../../core/realtime/inbox_realtime_service.dart';
+import '../../core/navigation/app_scaffold.dart';
 
 class InboxPage extends ConsumerStatefulWidget {
   const InboxPage({super.key});
@@ -30,14 +31,14 @@ class _InboxPageState extends ConsumerState<InboxPage> {
   @override
   Widget build(BuildContext context) {
     final result = ref.watch(inboxPageProvider(page));
-    return Scaffold(
-      appBar: AppBar(title: const Text('WhatsApp Inbox'), actions: [
+    return AppScaffold(
+      title: 'Inbox', actions: [
         IconButton(
             tooltip: 'Refresh',
             icon: const Icon(Icons.refresh),
             onPressed: () => ref.invalidate(inboxPageProvider(page))),
-      ]),
-      body: result.when(
+      ],
+      child: result.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => Center(
             child: FilledButton(
