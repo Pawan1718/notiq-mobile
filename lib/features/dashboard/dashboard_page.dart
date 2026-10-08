@@ -8,6 +8,7 @@ import '../../core/widgets/notiq_metric_card.dart';
 import '../../core/widgets/notiq_page_state.dart';
 import 'dashboard_models.dart';
 import 'dashboard_repository.dart';
+import 'package:intl/intl.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -141,6 +142,30 @@ class _DashboardContent extends StatelessWidget {
               _FailureNotice(failed: metrics.failed),
             ],
             const SizedBox(height: 24),
+            if (metrics.channelStats.isNotEmpty) ...[
+              const _SectionTitle(
+                title: 'Channels',
+                subtitle: 'Message volume by channel',
+              ),
+              const SizedBox(height: 12),
+              ...metrics.channelStats.map((stat) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _ChannelTile(stat: stat),
+              )),
+              const SizedBox(height: 18),
+            ],
+            if (metrics.recentLogs.isNotEmpty) ...[
+              const _SectionTitle(
+                title: 'Recent activity',
+                subtitle: 'Latest message events',
+              ),
+              const SizedBox(height: 12),
+              ...metrics.recentLogs.take(5).map((log) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _ActivityTile(log: log),
+              )),
+              const SizedBox(height: 18),
+            ],
             const _SectionTitle(
               title: 'Jump back in',
               subtitle: 'Your most-used workspaces',
@@ -339,4 +364,123 @@ class _QuickLink extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ChannelTile extends StatelessWidget {
+  const _ChannelTile({required this.stat});
+  final DashboardChannelStat stat;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final progress = stat.total <= 0 ? 0.0 : (stat.sent / stat.total).clamp(0.0, 1.0);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(_channelIcon(stat.channel), color: theme.colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(child: Text(stat.channel, style: theme.textTheme.titleMedium)),
+              Text('${stat.total} messages', style: theme.textTheme.bodySmall),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(
+            value: progress,
+            minHeight: 5,
+            borderRadius: BorderRadius.circular(8),
+            backgroundColor: theme.colorScheme.surfaceContainerHighest,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text('${stat.sent} sent', style: theme.textTheme.bodySmall),
+              const Spacer(),
+              Text('${stat.failed} failed', style: theme.textTheme.bodySmall),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivityTile extends StatelessWidget {
+  const _ActivityTile({required this.log});
+  final DashboardRecentLog log;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final target = log.recipientName.trim().isNotEmpty
+        ? log.recipientName
+        : _maskedRecipient(log.recipientAddress);
+    final when = log.createdAt == null
+        ? ''
+        : DateFormat('MMM d, h:mm a').format(log.createdAt!.toLocal());
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: theme.colorScheme.primaryContainer,
+            child: Icon(_channelIcon(log.channel),
+                size: 19, color: theme.colorScheme.onPrimaryContainer),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(target.isEmpty ? 'Recipient' : target,
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall),
+                Text('${log.channel} · $when',
+                    style: theme.textTheme.bodySmall,
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(log.status,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: log.status == 'Failed'
+                    ? theme.colorScheme.error
+                    : theme.colorScheme.primary,
+                fontWeight: FontWeight.w700,
+              )),
+        ],
+      ),
+    );
+  }
+}
+
+IconData _channelIcon(String channel) {
+  switch (channel) {
+    case 'WhatsApp':
+      return Icons.chat_outlined;
+    case 'Email':
+      return Icons.mail_outline;
+    case 'SMS':
+      return Icons.sms_outlined;
+    default:
+      return Icons.notifications_none;
+  }
+}
+
+String _maskedRecipient(String value) {
+  if (value.length <= 4) return '••••';
+  return '••••${value.substring(value.length - 4)}';
 }
