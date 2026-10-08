@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// A compact, accessible metric surface for server-provided values.
+/// Compact server-backed metric surface shared by dashboard sections.
 class NotiqMetricCard extends StatelessWidget {
   const NotiqMetricCard({
     super.key,
@@ -29,7 +29,7 @@ class NotiqMetricCard extends StatelessWidget {
               value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleLarge,
+              style: theme.textTheme.headlineSmall,
             ),
             Text(
               label,
