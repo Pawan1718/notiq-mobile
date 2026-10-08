@@ -91,23 +91,33 @@ class ApiClient {
     try {
       final response = await dio.post<Object?>(path,
           data: payload, options: Options(extra: {'noAuth': anonymous}));
+      final status = response.statusCode ?? 500;
       final body = response.data;
       if (body is! Map<String, dynamic>) {
-        throw ApiFailure('Unexpected server response.',
-            statusCode: response.statusCode);
-      }
-      final result = ApiResponse<T>.fromJson(body, parse);
-      if ((response.statusCode ?? 500) >= 400 || !result.success) {
         throw ApiFailure(
-            result.message.isNotEmpty ? result.message : 'Request failed.',
-            statusCode: response.statusCode);
+          status == 401 ? 'Tenant credentials were rejected.' :
+          'Unexpected API response (HTTP $status).',
+          statusCode: status);
       }
-      return result;
+      // Parse failures from unsuccessful HTTP responses without parsing their data.
+      if (status >= 400 || body['success'] != true) {
+        final message = body['message']?.toString() ?? '';
+        throw ApiFailure(
+          status == 401 ? 'Invalid tenant credentials or inactive account.' :
+          status == 429 ? 'Too many login attempts. Please try again later.' :
+          message.isNotEmpty ? message : 'Login failed (HTTP $status).',
+          statusCode: status);
+      }
+      return ApiResponse<T>.fromJson(body, parse);
     } on DioException catch (error) {
-      throw ApiFailure(error.type == DioExceptionType.connectionTimeout ||
-              error.type == DioExceptionType.receiveTimeout
-          ? 'Connection timed out. Please retry.'
-          : 'Unable to connect. Check your connection.');
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout ||
+          error.type == DioExceptionType.sendTimeout) {
+        throw const ApiFailure(
+          'API connection timed out. Verify the backend and USB port forwarding.');
+      }
+      throw const ApiFailure(
+        'Unable to reach Notiq API. Verify the API address and network connection.');
     }
   }
 }
