@@ -78,6 +78,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                               MaterialPageRoute<void>(
                                   builder: (_) => ConversationPage(
                                       conversationId: item.id,
+                                      initialMode: item.mode,
                                       title: item.contactName.isEmpty
                                           ? item.phoneNumber
                                           : item.contactName))),
@@ -103,8 +104,9 @@ class _InboxPageState extends ConsumerState<InboxPage> {
 
 class ConversationPage extends ConsumerStatefulWidget {
   const ConversationPage(
-      {super.key, required this.conversationId, required this.title});
+      {super.key, required this.conversationId, required this.title, required this.initialMode});
   final int conversationId;
+  final int initialMode;
   final String title;
   @override
   ConsumerState<ConversationPage> createState() => _ConversationPageState();
@@ -199,7 +201,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     final inbox = ref.watch(inboxPageProvider(1));
     final conversation = inbox.valueOrNull?.items.where(
       (item) => item.id == widget.conversationId).firstOrNull;
-    final mode = currentMode ?? conversation?.mode;
+    final mode = currentMode ?? conversation?.mode ?? widget.initialMode;
     final messages = ref.watch(inboxMessagesProvider(widget.conversationId));
     return Scaffold(
       appBar: AppBar(title: Text(widget.title), actions: [
