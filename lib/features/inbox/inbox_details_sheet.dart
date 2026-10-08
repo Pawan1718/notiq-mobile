@@ -106,7 +106,8 @@ class _InboxDetailsSheetState extends ConsumerState<InboxDetailsSheet> {
                 child: const Text('Retry loading agents'),
               ),
               data: (items) => DropdownButtonFormField<int>(
-                value: conversation.assignedUserId ?? -1,
+                initialValue: items.any((agent) => agent.id == conversation.assignedUserId)
+                    ? conversation.assignedUserId : -1,
                 isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Assigned to'),
                 items: [

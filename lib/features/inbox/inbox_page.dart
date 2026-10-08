@@ -22,7 +22,6 @@ class _InboxPageState extends ConsumerState<InboxPage> {
   @override
   void initState() {
     super.initState();
-    currentConversation = widget.initialConversation;
     realtimeSubscription = ref.listenManual(inboxRealtimeProvider, (_, next) {
       if (next.valueOrNull != null && mounted) {
         ref.invalidate(inboxPageProvider(page));
@@ -360,9 +359,11 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     try {
       await ref.read(inboxRepositoryProvider).markRead(widget.conversationId);
       ref.invalidate(inboxPageProvider(1));
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Marked as read')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Marked as read')),
+        );
+      }
     } catch (_) {
       if (mounted) setState(() => error = 'Could not mark as read.');
     } finally {

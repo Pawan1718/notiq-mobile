@@ -253,16 +253,18 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
               if (step == 3) ...[
                 Text('When should it be sent?', style: theme.textTheme.titleLarge),
                 const SizedBox(height: 12),
-                RadioListTile<bool>(
+                ListTile(
+                  leading: Icon(scheduledAt == null
+                      ? Icons.radio_button_checked : Icons.radio_button_unchecked),
                   title: const Text('No schedule yet'),
                   subtitle: const Text('Save draft and decide later'),
-                  value: false, groupValue: scheduledAt != null,
-                  onChanged: saving ? null : (_) => setState(() => scheduledAt = null),
+                  onTap: saving ? null : () => setState(() => scheduledAt = null),
                 ),
-                RadioListTile<bool>(
+                ListTile(
+                  leading: Icon(scheduledAt != null
+                      ? Icons.radio_button_checked : Icons.radio_button_unchecked),
                   title: const Text('Schedule for later'),
-                  value: true, groupValue: scheduledAt != null,
-                  onChanged: saving ? null : (_) => chooseSchedule(),
+                  onTap: saving ? null : chooseSchedule,
                 ),
                 if (scheduledAt != null) ListTile(
                   leading: const Icon(Icons.event_available_outlined),
