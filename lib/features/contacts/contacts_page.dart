@@ -38,9 +38,16 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
             },
             icon: const Icon(Icons.person_add_alt)),
       ]),
-      body: Column(children: [
+      body: SafeArea(top: false, child: Column(children: [
         Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+            child: Align(alignment: Alignment.centerLeft,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Your contacts', style: Theme.of(context).textTheme.headlineSmall),
+                Text('People and messaging preferences', style: Theme.of(context).textTheme.bodySmall),
+              ]))),
+        Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: TextField(
               controller: search,
               decoration: InputDecoration(
@@ -72,16 +79,25 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                 await ref.read(
                     contactListProvider((page: page, search: filter)).future);
               },
-              child: ListView(children: [
+              child: ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
                 for (final contact in data.items)
                   ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     leading: CircleAvatar(
                         child: Text(contact.name.isEmpty
                             ? '?'
                             : contact.name[0].toUpperCase())),
                     title: Text(
-                        contact.name.isEmpty ? contact.mobile : contact.name),
-                    subtitle: Text(contact.mobile),
+                        contact.name.isEmpty ? contact.mobile : contact.name,
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(contact.mobile),
+                      if (contact.email.isNotEmpty) Text(contact.email,
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                      if (!contact.active) Text('Inactive',
+                        style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                    ]),
                     trailing: contact.active
                         ? const Icon(Icons.chevron_right)
                         : const Icon(Icons.pause_circle_outline),
@@ -95,7 +111,8 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                     },
                   ),
                 if (data.items.isEmpty)
-                  const ListTile(title: Text('No contacts found')),
+                  const Padding(padding: EdgeInsets.all(36),
+                    child: Center(child: Text('No contacts found'))),
                 NotiqPagination(
                   page: page,
                   totalPages: data.totalPages,
@@ -103,7 +120,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                 ),
               ])),
         )),
-      ]),
+      ])),
     );
   }
 }
@@ -158,6 +175,8 @@ class _ContactEditorPageState extends ConsumerState<ContactEditorPage> {
             : detail?.hasError == true
                 ? const Center(child: Text('Unable to load contact'))
                 : ListView(padding: const EdgeInsets.all(16), children: [
+                    Text('Contact information', style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 12),
                     TextField(
                         controller: name,
                         decoration: const InputDecoration(labelText: 'Name')),
@@ -175,6 +194,12 @@ class _ContactEditorPageState extends ConsumerState<ContactEditorPage> {
                         controller: email,
                         keyboardType: TextInputType.emailAddress,
                         decoration: const InputDecoration(labelText: 'Email')),
+                    const SizedBox(height: 24),
+                    Text('Communication consent', style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 6),
+                    Text('Enable a channel only when the contact has given consent.',
+                      style: Theme.of(context).textTheme.bodySmall),
+                    const SizedBox(height: 12),
                     SwitchListTile(
                         title: const Text('WhatsApp consent'),
                         value: whatsApp,
