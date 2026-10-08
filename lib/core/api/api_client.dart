@@ -96,10 +96,29 @@ class ApiClient {
       }
       return result;
     } on DioException catch (error) {
-      throw ApiFailure(error.type == DioExceptionType.connectionTimeout ||
-              error.type == DioExceptionType.receiveTimeout
-          ? 'Connection timed out. Please retry.'
-          : 'Unable to connect. Check your connection.');
+      final status = error.response?.statusCode;
+      final responseBody = error.response?.data;
+      if (responseBody is Map) {
+        final message = responseBody['message']?.toString();
+        if (message != null && message.trim().isNotEmpty) {
+          throw ApiFailure(message, statusCode: status);
+        }
+      }
+      if (status != null) {
+        throw ApiFailure('API returned HTTP $status.', statusCode: status);
+      }
+      switch (error.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.receiveTimeout:
+        case DioExceptionType.sendTimeout:
+          throw const ApiFailure('API connection timed out. Check address and port.');
+        case DioExceptionType.badCertificate:
+          throw const ApiFailure('API HTTPS certificate is not trusted.');
+        case DioExceptionType.connectionError:
+          throw const ApiFailure('Cannot reach API. Check IP address, port and Wi-Fi.');
+        default:
+          throw const ApiFailure('API connection failed. Please retry.');
+      }
     }
   }
 }
