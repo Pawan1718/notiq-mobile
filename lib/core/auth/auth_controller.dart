@@ -10,7 +10,10 @@ final sessionStoreProvider = Provider<SecureSessionStore>(
       aOptions: AndroidOptions(encryptedSharedPreferences: true))),
 );
 final apiClientProvider =
-    Provider<ApiClient>((ref) => ApiClient(ref.read(sessionStoreProvider)));
+    Provider<ApiClient>((ref) => ApiClient(ref.read(sessionStoreProvider),
+        onSessionExpired: () async {
+          ref.read(authProvider.notifier).sessionExpired();
+        }));
 final authProvider =
     AsyncNotifierProvider<AuthController, bool>(AuthController.new);
 
@@ -37,6 +40,10 @@ class AuthController extends AsyncNotifier<bool> {
           );
       return true;
     });
+  }
+
+  void sessionExpired() {
+    state = const AsyncData(false);
   }
 
   Future<void> logout() async {

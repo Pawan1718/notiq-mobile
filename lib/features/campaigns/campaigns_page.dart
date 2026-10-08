@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'campaign_repository.dart';
 import 'campaign_draft_page.dart';
+import '../../core/navigation/app_scaffold.dart';
 
 class CampaignsPage extends ConsumerStatefulWidget {
   const CampaignsPage({super.key});
@@ -24,8 +25,8 @@ class _CampaignsPageState extends ConsumerState<CampaignsPage> {
   @override
   Widget build(BuildContext context) {
     final result = ref.watch(campaignsProvider((page: page, search: query)));
-    return Scaffold(
-      appBar: AppBar(title: const Text('Campaigns'), actions: [
+    return AppScaffold(
+      title: 'Campaigns', actions: [
         IconButton(
             tooltip: 'Create draft',
             icon: const Icon(Icons.add),
@@ -40,8 +41,8 @@ class _CampaignsPageState extends ConsumerState<CampaignsPage> {
             tooltip: 'Refresh',
             onPressed: refresh,
             icon: const Icon(Icons.refresh)),
-      ]),
-      body: Column(children: [
+      ],
+      child: Column(children: [
         Padding(
             padding: const EdgeInsets.all(12),
             child: TextField(

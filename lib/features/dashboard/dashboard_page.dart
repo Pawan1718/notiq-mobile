@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/auth/auth_controller.dart';
+import '../../core/navigation/app_scaffold.dart';
 import 'dashboard_repository.dart';
 
 class DashboardPage extends ConsumerWidget {
@@ -10,30 +10,18 @@ class DashboardPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final metrics = ref.watch(dashboardMetricsProvider);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Notiq Dashboard'), actions: [
-        IconButton(
-            tooltip: 'Campaigns',
-            icon: const Icon(Icons.campaign_outlined),
-            onPressed: () => context.push('/campaigns')),
-        IconButton(
-            tooltip: 'Contacts',
-            icon: const Icon(Icons.people_outline),
-            onPressed: () => context.push('/contacts')),
-        IconButton(
-            tooltip: 'WhatsApp Inbox',
-            icon: const Icon(Icons.forum_outlined),
-            onPressed: () => context.push('/inbox')),
+    return AppScaffold(
+      title: 'Dashboard', actions: [
+
+
+
         IconButton(
             tooltip: 'Refresh',
             icon: const Icon(Icons.refresh),
             onPressed: () => ref.invalidate(dashboardMetricsProvider)),
-        IconButton(
-            tooltip: 'Sign out',
-            icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(authProvider.notifier).logout()),
-      ]),
-      body: SafeArea(
+
+      ],
+      child: SafeArea(
         child: metrics.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (_, __) => Center(
