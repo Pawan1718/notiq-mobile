@@ -49,6 +49,60 @@ class InboxRepository {
     return response.data!;
   }
 
+
+  Future<List<InboxAssignee>> assignees() async {
+    final response = await _api.get<List<InboxAssignee>>(
+      '$inboxBasePath/assignees',
+      (data) => (data as List<dynamic>)
+          .map((value) => InboxAssignee.fromJson(value as Map<String, dynamic>)).toList(),
+    );
+    return response.data ?? const [];
+  }
+
+  Future<List<InboxTag>> tags() async {
+    final response = await _api.get<List<InboxTag>>(
+      '$inboxBasePath/tags',
+      (data) => (data as List<dynamic>)
+          .map((value) => InboxTag.fromJson(value as Map<String, dynamic>)).toList(),
+    );
+    return response.data ?? const [];
+  }
+
+  Future<List<InboxQuickReply>> quickReplies() async {
+    final response = await _api.get<List<InboxQuickReply>>(
+      '$inboxBasePath/quick-replies',
+      (data) => (data as List<dynamic>)
+          .map((value) => InboxQuickReply.fromJson(value as Map<String, dynamic>)).toList(),
+    );
+    return response.data ?? const [];
+  }
+
+  Future<InboxConversation> updateAssignment(int id, int? assignedUserId) =>
+      _updateConversation(id, 'assignment', {'assignedUserId': assignedUserId});
+
+  Future<InboxConversation> updateStatus(int id, int status) =>
+      _updateConversation(id, 'status', {'status': status});
+
+  Future<InboxConversation> updateMode(int id, int mode) =>
+      _updateConversation(id, 'mode', {'mode': mode});
+
+  Future<InboxConversation> updateTags(int id, List<int> tagIds) =>
+      _updateConversation(id, 'tags', {'tagIds': tagIds});
+
+  Future<InboxConversation> _updateConversation(
+      int id, String path, Map<String, dynamic> payload) async {
+    final response = await _api.mutate<InboxConversation>(
+      '$inboxBasePath/$id/$path',
+      'PUT',
+      InboxConversation.fromJson,
+      payload: payload,
+    );
+    if (response.data == null) {
+      throw const FormatException('Conversation update response missing');
+    }
+    return response.data!;
+  }
+
   Future<List<InboxMessage>> messages(int id) async {
     final response = await _api.get<List<InboxMessage>>(
       '$inboxBasePath/$id/messages',
@@ -67,4 +121,14 @@ final inboxPageProvider =
 final inboxMessagesProvider =
     FutureProvider.autoDispose.family<List<InboxMessage>, int>(
   (ref, id) => ref.read(inboxRepositoryProvider).messages(id),
+);
+
+final inboxAssigneesProvider = FutureProvider.autoDispose<List<InboxAssignee>>(
+  (ref) => ref.read(inboxRepositoryProvider).assignees(),
+);
+final inboxTagsProvider = FutureProvider.autoDispose<List<InboxTag>>(
+  (ref) => ref.read(inboxRepositoryProvider).tags(),
+);
+final inboxQuickRepliesProvider = FutureProvider.autoDispose<List<InboxQuickReply>>(
+  (ref) => ref.read(inboxRepositoryProvider).quickReplies(),
 );
