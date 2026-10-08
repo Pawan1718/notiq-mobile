@@ -488,9 +488,24 @@ class _CampaignRecipientsPageState
                   child: Text('Retry: $e'))),
           data: (data) => ListView(children: [
             Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                    'Total: ${number(data.summary['total'])} · Delivered: ${number(data.summary['delivered'])} · Failed: ${number(data.summary['failed'])}')),
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
+              child: Text('Recipient delivery',
+                  style: Theme.of(context).textTheme.titleLarge),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  Chip(label: Text('Total ${number(data.summary['total'])}')),
+                  Chip(label: Text('Delivered ${number(data.summary['delivered'])}')),
+                  Chip(label: Text('Read ${number(data.summary['read'])}')),
+                  Chip(label: Text('Failed ${number(data.summary['failed'])}')),
+                ],
+              ),
+            ),
+            const Divider(height: 24),
             for (final recipient in data.recipients)
               ListTile(
                   title: Text((recipient['recipientName'] ??
