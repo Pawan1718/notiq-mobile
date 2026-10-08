@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'contact_repository.dart';
+import '../../core/navigation/app_scaffold.dart';
 
 class ContactsPage extends ConsumerStatefulWidget {
   const ContactsPage({super.key});
@@ -24,8 +25,8 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
   Widget build(BuildContext context) {
     final contacts =
         ref.watch(contactListProvider((page: page, search: filter)));
-    return Scaffold(
-      appBar: AppBar(title: const Text('Contacts'), actions: [
+    return AppScaffold(
+      title: 'Contacts', actions: [
         IconButton(onPressed: reload, icon: const Icon(Icons.refresh)),
         IconButton(
             onPressed: () async {
@@ -36,8 +37,8 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
               reload();
             },
             icon: const Icon(Icons.person_add_alt)),
-      ]),
-      body: Column(children: [
+      ],
+      child: Column(children: [
         Padding(
             padding: const EdgeInsets.all(12),
             child: TextField(
