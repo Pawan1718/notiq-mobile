@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/widgets/notiq_pagination.dart';
 import 'contact_repository.dart';
 
 class ContactsPage extends ConsumerStatefulWidget {
@@ -95,17 +96,11 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                   ),
                 if (data.items.isEmpty)
                   const ListTile(title: Text('No contacts found')),
-                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  IconButton(
-                      onPressed: page > 1 ? () => setState(() => page--) : null,
-                      icon: const Icon(Icons.chevron_left)),
-                  Text('$page / ${data.totalPages}'),
-                  IconButton(
-                      onPressed: page < data.totalPages
-                          ? () => setState(() => page++)
-                          : null,
-                      icon: const Icon(Icons.chevron_right)),
-                ]),
+                NotiqPagination(
+                  page: page,
+                  totalPages: data.totalPages,
+                  onPageChanged: (next) => setState(() => page = next),
+                ),
               ])),
         )),
       ]),
