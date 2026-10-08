@@ -6,6 +6,7 @@ import 'campaign_draft_page.dart';
 
 class CampaignsPage extends ConsumerStatefulWidget {
   const CampaignsPage({super.key});
+
   @override
   ConsumerState<CampaignsPage> createState() => _CampaignsPageState();
 }
@@ -14,6 +15,7 @@ class _CampaignsPageState extends ConsumerState<CampaignsPage> {
   final search = TextEditingController();
   String query = '';
   int page = 1;
+
   @override
   void dispose() {
     search.dispose();
@@ -22,69 +24,240 @@ class _CampaignsPageState extends ConsumerState<CampaignsPage> {
 
   void refresh() =>
       ref.invalidate(campaignsProvider((page: page, search: query)));
+
+  Future<void> createDraft() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(builder: (_) => const CampaignDraftPage()),
+    );
+    if (mounted) refresh();
+  }
+
+  Future<void> openCampaign(CampaignItem item) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(builder: (_) => CampaignDetailPage(id: item.id)),
+    );
+    if (mounted) refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     final result = ref.watch(campaignsProvider((page: page, search: query)));
+    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Campaigns'), actions: [
-        IconButton(
-            tooltip: 'Create draft',
-            icon: const Icon(Icons.add),
-            onPressed: () async {
-              await Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                      builder: (_) => const CampaignDraftPage()));
-              refresh();
-            }),
-        IconButton(
-            tooltip: 'Refresh',
+      appBar: AppBar(
+        title: const Text('Campaigns'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh campaigns',
             onPressed: refresh,
-            icon: const Icon(Icons.refresh)),
-      ]),
-      body: Column(children: [
-        Padding(
-            padding: const EdgeInsets.all(12),
-            child: TextField(
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        top: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+              child: Row(
+                children: [
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Your campaigns', style: theme.textTheme.headlineSmall),
+                      const SizedBox(height: 4),
+                      Text('Create, schedule and monitor messages',
+                          style: theme.textTheme.bodySmall),
+                    ],
+                  )),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: createDraft,
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Create'),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+              child: TextField(
                 controller: search,
-                decoration: const InputDecoration(
-                    labelText: 'Search campaigns',
-                    prefixIcon: Icon(Icons.search)),
-                onSubmitted: (v) => setState(() {
-                      query = v;
-                      page = 1;
-                    }))),
-        Expanded(
-            child: result.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(
-                    child: TextButton(
-                        onPressed: refresh, child: Text('Retry: $e'))),
-                data: (data) => ListView(children: [
-                      for (final item in data.items)
-                        ListTile(
-                          leading: const Icon(Icons.campaign_outlined),
-                          title: Text(item.name),
-                          subtitle: Text(
-                              '${item.status} · ${item.sent}/${item.total} sent · ${item.failed} failed'),
-                          onTap: () async {
-                            await Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        CampaignDetailPage(id: item.id)));
-                            refresh();
+                textInputAction: TextInputAction.search,
+                onSubmitted: (value) => setState(() {
+                  query = value.trim();
+                  page = 1;
+                }),
+                decoration: InputDecoration(
+                  hintText: 'Search campaigns',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: search.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear search',
+                          onPressed: () {
+                            search.clear();
+                            setState(() { query = ''; page = 1; });
                           },
+                          icon: const Icon(Icons.close_rounded),
                         ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: result.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (_, __) => Center(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    const Text('Campaigns could not be loaded'),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: refresh,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Retry'),
+                    ),
+                  ]),
+                ),
+                data: (data) => RefreshIndicator(
+                  onRefresh: () async {
+                    refresh();
+                    await ref.read(campaignsProvider((page: page, search: query)).future);
+                  },
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(16, 2, 16, 22),
+                    children: [
                       if (data.items.isEmpty)
-                        const ListTile(title: Text('No campaigns found')),
-                      NotiqPagination(
-                        page: page,
-                        totalPages: data.totalPages,
-                        onPageChanged: (next) => setState(() => page = next),
-                      ),
-                    ]))),
-      ]),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 72),
+                          child: Column(children: [
+                            Icon(Icons.campaign_outlined, size: 48,
+                                color: theme.colorScheme.onSurfaceVariant),
+                            const SizedBox(height: 12),
+                            Text(query.isEmpty ? 'No campaigns yet' : 'No matching campaigns',
+                                style: theme.textTheme.titleMedium),
+                            const SizedBox(height: 6),
+                            Text(query.isEmpty
+                                ? 'Create a draft to get started.'
+                                : 'Try a different search term.',
+                                style: theme.textTheme.bodySmall),
+                          ]),
+                        ),
+                      for (final item in data.items) ...[
+                        _CampaignCard(item: item, onTap: () => openCampaign(item)),
+                        const SizedBox(height: 10),
+                      ],
+                      if (data.totalPages > 1)
+                        NotiqPagination(
+                          page: page,
+                          totalPages: data.totalPages,
+                          onPageChanged: (next) => setState(() => page = next),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CampaignCard extends StatelessWidget {
+  const _CampaignCard({required this.item, required this.onTap});
+  final CampaignItem item;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final status = item.status;
+    final lower = status.toLowerCase();
+    final danger = lower.contains('fail') || lower.contains('cancel');
+    final positive = lower.contains('deliver') || lower.contains('sent') ||
+        lower.contains('complete');
+    final statusColor = danger ? colors.error
+        : positive ? const Color(0xFF087F61)
+        : colors.primary;
+    final progress = item.total > 0
+        ? (item.sent / item.total).clamp(0.0, 1.0) : 0.0;
+    return Material(
+      color: colors.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            border: Border.all(color: theme.dividerColor),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Container(
+                  width: 40, height: 40,
+                  decoration: BoxDecoration(
+                    color: colors.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.campaign_outlined,
+                      color: colors.onPrimaryContainer),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Text(item.name,
+                    maxLines: 2, overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium)),
+                const SizedBox(width: 6),
+                const Icon(Icons.chevron_right_rounded, size: 20),
+              ]),
+              const SizedBox(height: 12),
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: .10),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Text(status, style: TextStyle(
+                    color: statusColor, fontSize: 12, fontWeight: FontWeight.w700,
+                  )),
+                ),
+                const Spacer(),
+                Text('${item.total} recipients', style: theme.textTheme.bodySmall),
+              ]),
+              const SizedBox(height: 14),
+              LinearProgressIndicator(
+                value: progress,
+                minHeight: 5,
+                borderRadius: BorderRadius.circular(8),
+                backgroundColor: colors.surfaceContainerHighest,
+              ),
+              const SizedBox(height: 9),
+              Row(children: [
+                Icon(Icons.send_outlined, size: 14,
+                    color: colors.onSurfaceVariant),
+                const SizedBox(width: 4),
+                Text('${item.sent} sent', style: theme.textTheme.bodySmall),
+                const Spacer(),
+                Icon(Icons.error_outline_rounded, size: 14,
+                    color: item.failed > 0 ? colors.error : colors.onSurfaceVariant),
+                const SizedBox(width: 4),
+                Text('${item.failed} failed', style: theme.textTheme.bodySmall),
+              ]),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
