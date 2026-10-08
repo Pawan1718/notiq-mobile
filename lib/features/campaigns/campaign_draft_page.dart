@@ -18,7 +18,9 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
       text: widget.existing?.raw['body']?.toString() ?? '');
   late final group = TextEditingController(
       text: widget.existing?.raw['contactGroupId']?.toString() ?? '');
-  late final provider = TextEditingController();
+  late final provider = TextEditingController(
+      text: widget.existing?.raw['providerSettingId']?.toString() ?? '');
+  DateTime? scheduledAtUtc;
   late final template = TextEditingController(
       text: widget.existing?.raw['templateId']?.toString() ?? '');
   int channel = 4;
@@ -31,6 +33,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
     if (widget.existing != null) {
       channel = number(widget.existing!.raw['channel']);
       audience = number(widget.existing!.raw['audienceType']);
+      scheduledAtUtc = DateTime.tryParse(widget.existing!.raw['scheduledAtUtc']?.toString() ?? '')?.toUtc();
     }
   }
 
@@ -46,6 +49,30 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
   }
 
   int? optional(TextEditingController v) => int.tryParse(v.text.trim());
+  Future<void> chooseSchedule() async {
+    final now = DateTime.now();
+    final current = scheduledAtUtc?.toLocal();
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: current != null && current.isAfter(now) ? current : now,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 730)),
+    );
+    if (selected == null || !mounted) return;
+    final time = await showTimePicker(context: context,
+      initialTime: TimeOfDay.fromDateTime(
+        current != null && current.isAfter(now)
+          ? current : now.add(const Duration(hours: 1))));
+    if (time == null || !mounted) return;
+    final local = DateTime(selected.year, selected.month, selected.day,
+      time.hour, time.minute);
+    if (!local.isAfter(DateTime.now())) {
+      setState(() => error = 'Choose a future date and time.');
+      return;
+    }
+    setState(() { scheduledAtUtc = local.toUtc(); error = null; });
+  }
+
   Future<void> save() async {
     if (saving) return;
     if (widget.existing != null &&
@@ -65,6 +92,10 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
       error = null;
     });
     try {
+      if (scheduledAtUtc != null && !scheduledAtUtc!.isAfter(DateTime.now().toUtc())) {
+        setState(() => error = 'Scheduled time must be in the future.');
+        return;
+      }
       await ref.read(campaignRepositoryProvider).saveDraft({
         'campaignName': name.text.trim(),
         'channel': channel,
@@ -81,7 +112,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
         'attachmentMimeType': widget.existing?.raw['attachmentMimeType'] ?? '',
         'attachmentSize': widget.existing?.raw['attachmentSize'],
         'whatsAppCommerce': widget.existing?.raw['whatsAppCommerce'],
-        'scheduledAtUtc': widget.existing?.raw['scheduledAtUtc'],
+        'scheduledAtUtc': scheduledAtUtc?.toIso8601String(),
       }, id: widget.id);
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -143,6 +174,25 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
               maxLines: 5,
               decoration: const InputDecoration(labelText: 'Message body')),
           const SizedBox(height: 16),
+          ListTile(
+            leading: const Icon(Icons.schedule_outlined),
+            title: Text(scheduledAtUtc == null ? 'Send when published'
+              : 'Scheduled: ${scheduledAtUtc!.toLocal()}'),
+            subtitle: const Text('Publish performs the final scheduling validation.'),
+            trailing: Wrap(mainAxisSize: MainAxisSize.min, children: [
+              IconButton(
+                tooltip: 'Set schedule',
+                icon: const Icon(Icons.edit_calendar_outlined),
+                onPressed: saving ? null : chooseSchedule,
+              ),
+              if (scheduledAtUtc != null)
+                IconButton(
+                  tooltip: 'Clear schedule',
+                  icon: const Icon(Icons.close),
+                  onPressed: saving ? null : () => setState(() => scheduledAtUtc = null),
+                ),
+            ]),
+          ),
           if (error != null)
             Text(error!,
                 style: TextStyle(color: Theme.of(context).colorScheme.error)),
