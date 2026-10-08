@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/api/api_config.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/notiq_theme.dart';
+import 'core/theme/theme_controller.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,7 +19,7 @@ class NotiqApp extends ConsumerWidget {
         debugShowCheckedModeBanner: false,
         theme: NotiqTheme.light(),
         darkTheme: NotiqTheme.darkTheme(),
-        themeMode: ThemeMode.system,
+        themeMode: ref.watch(themeModeProvider).valueOrNull ?? ThemeMode.system,
         routerConfig: ref.watch(routerProvider),
       );
 }
