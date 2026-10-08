@@ -8,6 +8,7 @@ import '../../features/dashboard/dashboard_page.dart';
 import '../../features/inbox/inbox_page.dart';
 import '../../features/contacts/contacts_page.dart';
 import '../../features/campaigns/campaigns_page.dart';
+import '../../features/more/more_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = ValueNotifier<int>(0);
@@ -51,6 +52,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/contacts', builder: (_, __) => const ContactsPage()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/more', builder: (_, __) => const MorePage()),
           ]),
         ],
       ),

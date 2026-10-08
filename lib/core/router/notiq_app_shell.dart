@@ -28,6 +28,11 @@ class NotiqAppShell extends StatelessWidget {
       selectedIcon: Icon(Icons.people_rounded),
       label: 'Contacts',
     ),
+    NavigationDestination(
+      icon: Icon(Icons.grid_view_outlined),
+      selectedIcon: Icon(Icons.grid_view_rounded),
+      label: 'More',
+    ),
   ];
 
   @override
