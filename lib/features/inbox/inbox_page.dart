@@ -16,15 +16,18 @@ class _InboxPageState extends ConsumerState<InboxPage> {
   int page = 1;
   bool unreadOnly = false;
   String search = '';
+  int? statusFilter;
+  int? modeFilter;
   final searchController = TextEditingController();
   late final ProviderSubscription<AsyncValue<InboxRealtimeEvent>> realtimeSubscription;
 
   @override
   void initState() {
     super.initState();
+    currentConversation = widget.initialConversation;
     realtimeSubscription = ref.listenManual(inboxRealtimeProvider, (_, next) {
       if (next.valueOrNull != null && mounted) {
-        ref.invalidate(inboxPageProvider(page));
+        ref.invalidate(inboxFilteredProvider((page: page, search: search, status: statusFilter, mode: modeFilter)));
       }
     });
   }
@@ -38,7 +41,8 @@ class _InboxPageState extends ConsumerState<InboxPage> {
 
   @override
   Widget build(BuildContext context) {
-    final result = ref.watch(inboxPageProvider(page));
+    final filter = (page: page, search: search, status: statusFilter, mode: modeFilter);
+    final result = ref.watch(inboxFilteredProvider(filter));
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     return Scaffold(
@@ -48,7 +52,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
           IconButton(
             tooltip: 'Refresh conversations',
             icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => ref.invalidate(inboxPageProvider(page)),
+            onPressed: () => ref.invalidate(inboxFilteredProvider(filter)),
           ),
         ],
       ),
@@ -65,9 +69,9 @@ class _InboxPageState extends ConsumerState<InboxPage> {
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
               child: TextField(
                 controller: searchController,
-                onChanged: (value) => setState(() => search = value.trim().toLowerCase()),
+                onSubmitted: (value) => setState(() { search = value.trim(); page = 1; }),
                 decoration: const InputDecoration(
-                  hintText: 'Find on this page',
+                  hintText: 'Search all conversations',
                   prefixIcon: Icon(Icons.search_rounded),
                   isDense: true,
                 ),
@@ -75,7 +79,9 @@ class _InboxPageState extends ConsumerState<InboxPage> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-              child: Row(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
                 children: [
                   ChoiceChip(
                     label: const Text('All'),
@@ -88,12 +94,31 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                     selected: unreadOnly,
                     onSelected: (_) => setState(() => unreadOnly = true),
                   ),
-                  const Spacer(),
-                  Text('WhatsApp', style: theme.textTheme.labelMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  )),
+                  const SizedBox(width: 12),
+                  DropdownButton<int?>(
+                    value: statusFilter,
+                    hint: const Text('Any status'),
+                    items: const [
+                      DropdownMenuItem<int?>(value: null, child: Text('Any status')),
+                      DropdownMenuItem<int?>(value: 1, child: Text('Open')),
+                      DropdownMenuItem<int?>(value: 3, child: Text('Pending')),
+                      DropdownMenuItem<int?>(value: 2, child: Text('Resolved')),
+                    ],
+                    onChanged: (value) => setState(() { statusFilter = value; page = 1; }),
+                  ),
+                  const SizedBox(width: 12),
+                  DropdownButton<int?>(
+                    value: modeFilter,
+                    hint: const Text('Any mode'),
+                    items: const [
+                      DropdownMenuItem<int?>(value: null, child: Text('Any mode')),
+                      DropdownMenuItem<int?>(value: 1, child: Text('Bot')),
+                      DropdownMenuItem<int?>(value: 2, child: Text('Human')),
+                    ],
+                    onChanged: (value) => setState(() { modeFilter = value; page = 1; }),
+                  ),
                 ],
-              ),
+              )),
             ),
             const Divider(height: 1),
             Expanded(
@@ -107,15 +132,12 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                 data: (data) {
                   final matches = data.items.where((item) {
                     if (unreadOnly && item.unreadCount == 0) return false;
-                    if (search.isEmpty) return true;
-                    return item.contactName.toLowerCase().contains(search) ||
-                        item.phoneNumber.toLowerCase().contains(search) ||
-                        item.preview.toLowerCase().contains(search);
+                    return true;
                   }).toList();
                   return RefreshIndicator(
                     onRefresh: () async {
-                      ref.invalidate(inboxPageProvider(page));
-                      await ref.read(inboxPageProvider(page).future);
+                      ref.invalidate(inboxFilteredProvider(filter));
+                      await ref.read(inboxFilteredProvider(filter).future);
                     },
                     child: ListView.separated(
                       physics: const AlwaysScrollableScrollPhysics(),
@@ -132,7 +154,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                                 const SizedBox(height: 12),
                                 const Text('No matching conversations'),
                                 const SizedBox(height: 4),
-                                Text('Search and unread filters apply to this page.',
+                                Text('Unread applies to this page; search, status and mode apply to all pages.',
                                     textAlign: TextAlign.center,
                                     style: theme.textTheme.bodySmall),
                               ],
@@ -338,7 +360,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
 
   Future<void> sendReply() async {
     final body = controller.text.trim();
-    if (body.isEmpty || sending) return;
+    if (body.isEmpty || sending || currentConversation?.mode != 2) return;
     setState(() { sending = true; error = null; });
     try {
       await ref.read(inboxRepositoryProvider).reply(widget.conversationId, body);
@@ -431,6 +453,12 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                   Chip(label: Text(currentConversation!.assignedUserName!)),
               ]),
             ),
+          if (currentConversation?.mode == 1)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Text('Bot mode is active. Switch to Human in conversation details to reply.',
+                style: theme.textTheme.bodySmall),
+            ),
           if (error != null)
             MaterialBanner(
               content: Text(error!),
@@ -487,6 +515,13 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                                         height: 1.35,
                                       ),
                                     ),
+                                    if (message.messageType.isNotEmpty &&
+                                        message.messageType.toLowerCase() != 'text') ...[
+                                      const SizedBox(height: 4),
+                                      Text('Type: ${message.messageType}',
+                                        style: TextStyle(fontSize: 11,
+                                          color: outbound ? colors.onPrimary : colors.onSurfaceVariant)),
+                                    ],
                                     if (message.createdAt != null) ...[
                                       const SizedBox(height: 5),
                                       Text(
@@ -518,24 +553,25 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
             child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
               IconButton(
                 tooltip: 'Quick replies',
-                onPressed: sending ? null : insertQuickReply,
+                onPressed: sending || currentConversation?.mode != 2 ? null : insertQuickReply,
                 icon: const Icon(Icons.bolt_outlined),
               ),
               Expanded(child: TextField(
                 controller: controller,
-                enabled: !sending,
+                enabled: !sending && currentConversation?.mode == 2,
                 minLines: 1,
                 maxLines: 4,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
-                  hintText: 'Write a reply...',
+                  hintText: currentConversation?.mode == 2
+                      ? 'Write a reply...' : 'Switch to Human mode to reply',
                   isDense: true,
                 ),
               )),
               const SizedBox(width: 8),
               IconButton.filled(
                 tooltip: 'Send reply',
-                onPressed: sending ? null : sendReply,
+                onPressed: sending || currentConversation?.mode != 2 ? null : sendReply,
                 icon: sending
                     ? const SizedBox(width: 18, height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2,
