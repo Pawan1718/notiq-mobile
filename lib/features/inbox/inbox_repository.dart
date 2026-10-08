@@ -13,9 +13,14 @@ class InboxRepository {
   const InboxRepository(this._api);
   final ApiClient _api;
 
-  Future<InboxPageResult> conversations({int page = 1}) async {
+  Future<InboxPageResult> conversations({int page = 1, String search = '', int? status, int? mode}) async {
     final response = await _api.get<InboxPageResult>(
-      '$inboxBasePath?pageNumber=$page&pageSize=20',
+      '$inboxBasePath?${Uri(queryParameters: {
+        'pageNumber': '$page', 'pageSize': '20',
+        if (search.trim().isNotEmpty) 'search': search.trim(),
+        if (status != null) 'status': '$status',
+        if (mode != null) 'mode': '$mode',
+      }).query}',
       InboxPageResult.fromJson,
     );
     if (response.data == null) {
@@ -131,4 +136,11 @@ final inboxTagsProvider = FutureProvider.autoDispose<List<InboxTag>>(
 );
 final inboxQuickRepliesProvider = FutureProvider.autoDispose<List<InboxQuickReply>>(
   (ref) => ref.read(inboxRepositoryProvider).quickReplies(),
+);
+
+final inboxFilteredProvider = FutureProvider.autoDispose.family<InboxPageResult,
+    ({int page, String search, int? status, int? mode})>(
+  (ref, filter) => ref.read(inboxRepositoryProvider).conversations(
+    page: filter.page, search: filter.search,
+    status: filter.status, mode: filter.mode),
 );
