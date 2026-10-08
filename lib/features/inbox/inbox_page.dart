@@ -24,7 +24,6 @@ class _InboxPageState extends ConsumerState<InboxPage> {
   @override
   void initState() {
     super.initState();
-    currentConversation = widget.initialConversation;
     realtimeSubscription = ref.listenManual(inboxRealtimeProvider, (_, next) {
       if (next.valueOrNull != null && mounted) {
         ref.invalidate(inboxFilteredProvider((page: page, search: search, status: statusFilter, mode: modeFilter)));
@@ -127,7 +126,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                 error: (_, __) => Center(child: FilledButton.icon(
                   icon: const Icon(Icons.refresh),
                   label: const Text('Retry inbox'),
-                  onPressed: () => ref.invalidate(inboxPageProvider(page)),
+                  onPressed: () => ref.invalidate(inboxFilteredProvider(filter)),
                 )),
                 data: (data) {
                   final matches = data.items.where((item) {
@@ -267,6 +266,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
   @override
   void initState() {
     super.initState();
+    currentConversation = widget.initialConversation;
     realtimeSubscription = ref.listenManual(inboxRealtimeProvider, (_, next) {
       final event = next.valueOrNull;
       if (event == null || !mounted) return;
