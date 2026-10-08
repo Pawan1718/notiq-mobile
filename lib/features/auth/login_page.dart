@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_controller.dart';
+import '../../core/api/api_response.dart';
 import '../../core/theme/notiq_theme.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -83,7 +84,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: Text(
-                          'Sign in failed. Check your credentials or connection.',
+                          auth.error is ApiFailure
+                              ? (auth.error as ApiFailure).message
+                              : 'Unable to sign in. Please try again.',
                           style: TextStyle(
                               color: Theme.of(context).colorScheme.error))),
                 FilledButton(
