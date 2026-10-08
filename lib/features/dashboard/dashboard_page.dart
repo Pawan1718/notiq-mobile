@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/theme/notiq_brand.dart';
+import '../../core/widgets/notiq_metric_card.dart';
+import '../../core/widgets/notiq_page_state.dart';
+import '../../core/widgets/notiq_section_header.dart';
 import 'dashboard_repository.dart';
 
 class DashboardPage extends ConsumerWidget {
@@ -36,41 +39,31 @@ class DashboardPage extends ConsumerWidget {
       ]),
       body: SafeArea(
         child: metrics.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, __) => Center(
-                    child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    const Text('Dashboard could not be loaded.'),
-                    const SizedBox(height: 12),
-                    FilledButton(
-                        onPressed: () =>
-                            ref.invalidate(dashboardMetricsProvider),
-                        child: const Text('Retry')),
-                  ]),
-                )),
+            loading: () => const NotiqPageState.loading(),
+            error: (_, __) => NotiqPageState.error(
+              title: 'Dashboard could not be loaded',
+              onRetry: () => ref.invalidate(dashboardMetricsProvider),
+            ),
             data: (m) => RefreshIndicator(
                   onRefresh: () async {
                     ref.invalidate(dashboardMetricsProvider);
                     await ref.read(dashboardMetricsProvider.future);
                   },
                   child: ListView(padding: const EdgeInsets.all(16), children: [
-                    Text('Communication overview',
-                        style: Theme.of(context).textTheme.headlineSmall),
+                    const NotiqSectionHeader(title: 'Communication overview'),
                     const SizedBox(height: 16),
                     ...[
-                      ('Total messages', m.total),
-                      ('Sent', m.sent),
-                      ('Pending', m.pending),
-                      ('Scheduled', m.scheduled),
-                      ('Failed', m.failed),
-                      ('Retriable failures', m.retriableFailed),
-                    ].map((entry) => Card(
-                            child: ListTile(
-                          title: Text(entry.$1),
-                          trailing: Text('${entry.$2}',
-                              style: Theme.of(context).textTheme.titleLarge),
-                        ))),
+                      ('Total messages', m.total, Icons.mail_outline),
+                      ('Sent', m.sent, Icons.send_outlined),
+                      ('Pending', m.pending, Icons.schedule_outlined),
+                      ('Scheduled', m.scheduled, Icons.event_outlined),
+                      ('Failed', m.failed, Icons.error_outline),
+                      ('Retriable failures', m.retriableFailed, Icons.replay_outlined),
+                    ].map((entry) => NotiqMetricCard(
+                          label: entry.$1,
+                          value: '${entry.$2}',
+                          icon: entry.$3,
+                        )),
                   ]),
                 )),
       ),
