@@ -313,6 +313,26 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       ),
     );
     if (replies == null || !mounted) return;
+    if (controller.text.trim().isNotEmpty) {
+      final replace = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Replace your draft?'),
+          content: const Text('Your current message will be replaced with this saved reply.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Replace'),
+            ),
+          ],
+        ),
+      );
+      if (replace != true || !mounted) return;
+    }
     controller.text = replies.body;
     controller.selection = TextSelection.collapsed(offset: controller.text.length);
   }
