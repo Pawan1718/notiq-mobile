@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/theme/notiq_brand.dart';
+import '../../core/widgets/notiq_text_field.dart';
+import '../../core/widgets/notiq_button.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -46,23 +48,22 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 const Text('Sign in to your workspace',
                     textAlign: TextAlign.center),
                 const SizedBox(height: 32),
-                TextFormField(
+                NotiqTextField(
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(labelText: 'Email'),
+                    label: 'Email',
                     validator: (v) => v != null &&
                             RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
                                 .hasMatch(v.trim())
                         ? null
                         : 'Enter a valid email'),
                 const SizedBox(height: 16),
-                TextFormField(
+                NotiqTextField(
                     controller: _password,
+                    label: 'Password',
                     obscureText: _obscure,
-                    decoration: InputDecoration(
-                        labelText: 'Password',
-                        suffixIcon: IconButton(
+                    suffixIcon: IconButton(
                             tooltip:
                                 _obscure ? 'Show password' : 'Hide password',
                             onPressed: () =>
@@ -80,7 +81,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           'Sign in failed. Check your credentials or connection.',
                           style: TextStyle(
                               color: Theme.of(context).colorScheme.error))),
-                FilledButton(
+                NotiqButton(
+                    label: 'Sign in',
+                    loading: auth.isLoading,
                     onPressed: auth.isLoading
                         ? null
                         : () async {
@@ -89,10 +92,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 .read(authProvider.notifier)
                                 .login(_email.text, _password.text);
                           },
-                    child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child:
-                            Text(auth.isLoading ? 'Signing in…' : 'Sign in'))),
+                    ),
               ],
             )),
       ),
