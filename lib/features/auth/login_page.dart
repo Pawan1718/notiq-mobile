@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_controller.dart';
-import '../../core/theme/notiq_theme.dart';
+import '../../core/theme/notiq_brand.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -37,13 +37,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('notiq',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -2,
-                        color: NotiqTheme.violet)),
+                const Center(child: NotiqBrand()),
                 const SizedBox(height: 16),
                 Text('Welcome to Notiq',
                     textAlign: TextAlign.center,
