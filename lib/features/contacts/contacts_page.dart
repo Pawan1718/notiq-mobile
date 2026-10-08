@@ -299,7 +299,7 @@ class _MultiContactLookup extends ConsumerWidget {
   });
   final String title;
   final List<int> selected;
-  final FutureProvider<List<Map<String,dynamic>>> provider;
+  final AutoDisposeFutureProvider<List<Map<String,dynamic>>> provider;
   final ValueChanged<List<int>> onChange;
 
   @override
