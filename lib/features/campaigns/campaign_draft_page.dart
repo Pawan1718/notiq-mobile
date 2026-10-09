@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:intl/intl.dart';
 import 'campaign_repository.dart';
 
 class CampaignDraftPage extends ConsumerStatefulWidget {
@@ -281,20 +280,20 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
                 Card(
                   margin: EdgeInsets.zero,
                   child: Column(children: [
-                    RadioListTile<bool>(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-                      value: false,
-                      groupValue: scheduledAt != null,
-                      onChanged: saving ? null : (_) => setState(() => scheduledAt = null),
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      leading: Icon(scheduledAt == null
+                          ? Icons.radio_button_checked : Icons.radio_button_unchecked),
+                      onTap: saving ? null : () => setState(() => scheduledAt = null),
                       title: const Text('Save without schedule'),
                       subtitle: const Text('You can schedule or publish later'),
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
-                    RadioListTile<bool>(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-                      value: true,
-                      groupValue: scheduledAt != null,
-                      onChanged: saving ? null : (_) => chooseSchedule(),
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      leading: Icon(scheduledAt != null
+                          ? Icons.radio_button_checked : Icons.radio_button_unchecked),
+                      onTap: saving ? null : chooseSchedule,
                       title: const Text('Schedule for later'),
                       subtitle: scheduledAt == null
                           ? const Text('Choose a date and time')
