@@ -9,8 +9,13 @@ final sessionStoreProvider = Provider<SecureSessionStore>(
   (ref) => const SecureSessionStore(FlutterSecureStorage(
       aOptions: AndroidOptions(encryptedSharedPreferences: true))),
 );
-final apiClientProvider =
-    Provider<ApiClient>((ref) => ApiClient(ref.read(sessionStoreProvider)));
+final apiClientProvider = Provider<ApiClient>((ref) {
+  final client = ApiClient(ref.read(sessionStoreProvider));
+  client.onUnauthorized = () {
+    ref.read(authProvider.notifier).sessionExpired();
+  };
+  return client;
+});
 final authProvider =
     AsyncNotifierProvider<AuthController, bool>(AuthController.new);
 
@@ -37,6 +42,10 @@ class AuthController extends AsyncNotifier<bool> {
           );
       return true;
     });
+  }
+
+  void sessionExpired() {
+    state = const AsyncData(false);
   }
 
   Future<void> logout() async {

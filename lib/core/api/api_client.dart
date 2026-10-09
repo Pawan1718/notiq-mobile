@@ -23,6 +23,7 @@ class ApiClient {
       if (response.statusCode == 401 &&
           response.requestOptions.extra['noAuth'] != true) {
         await _session.clear();
+        onUnauthorized?.call();
       }
       handler.next(response);
     }));
@@ -30,6 +31,7 @@ class ApiClient {
 
   final SecureSessionStore _session;
   final Dio dio;
+  void Function()? onUnauthorized;
 
   Future<ApiResponse<T>> mutate<T>(
       String path, String method, T Function(Object?) parse,
