@@ -562,7 +562,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                 minLines: 1,
                 maxLines: 4,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: currentConversation?.mode == 2
                       ? 'Write a reply...' : 'Switch to Human mode to reply',
                   isDense: true,
