@@ -19,6 +19,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
   bool loadingMore = false;
   bool moreFailed = false;
   int listGeneration = 0;
+  String? paginationError;
   bool unreadOnly = false;
   String search = '';
   bool searchOpen = false;
@@ -39,7 +40,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
     });
     realtimeSubscription = ref.listenManual(inboxRealtimeProvider, (_, next) {
       if (next.valueOrNull != null && mounted) {
-        setState(resetInbox);
+        // Refresh the first page without losing already loaded older conversations.
         ref.invalidate(inboxFilteredProvider((page: 1, search: search, status: statusFilter, mode: modeFilter)));
       }
     });
@@ -58,6 +59,9 @@ class _InboxPageState extends ConsumerState<InboxPage> {
     page = 1;
     extraConversations.clear();
     moreFailed = false;
+    paginationError = null;
+    loadingMore = false;
+    if (scrollController.hasClients) scrollController.jumpTo(0);
   }
 
   Future<void> _loadMore() async {
@@ -80,6 +84,13 @@ class _InboxPageState extends ConsumerState<InboxPage> {
           statusFilter != expectedStatus || modeFilter != expectedMode) {
         return;
       }
+      if (next.items.isEmpty) {
+        if (mounted) setState(() {
+          moreFailed = true;
+          paginationError = 'No additional conversations returned. Retry.';
+        });
+        return;
+      }
       setState(() {
         page = nextPage;
         final existingIds = {
@@ -93,10 +104,10 @@ class _InboxPageState extends ConsumerState<InboxPage> {
     } catch (_) {
       if (mounted && generation == listGeneration && search == expectedSearch &&
           statusFilter == expectedStatus && modeFilter == expectedMode) {
-        setState(() => moreFailed = true);
+        setState(() { moreFailed = true; paginationError = 'Unable to load more conversations.'; });
       }
     } finally {
-      if (mounted) setState(() => loadingMore = false);
+      if (mounted && generation == listGeneration) setState(() => loadingMore = false);
     }
   }
 
@@ -174,6 +185,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
             icon: const Icon(Icons.more_vert_rounded),
             onSelected: (value) {
               if (value == 'refresh') {
+                setState(resetInbox);
                 ref.invalidate(inboxFilteredProvider(filter));
               } else if (value == 'filters') {
                 _showAdvancedFilters();
@@ -304,7 +316,12 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                   onPressed: () => ref.invalidate(inboxFilteredProvider(filter)),
                 )),
                 data: (data) {
-                  final matches = [...data.items, ...extraConversations].where((item) {
+                  final refreshedIds = data.items.map((item) => item.id).toSet();
+                  final combined = [
+                    ...data.items,
+                    ...extraConversations.where((item) => !refreshedIds.contains(item.id)),
+                  ];
+                  final matches = combined.where((item) {
                     if (unreadOnly && item.unreadCount == 0) return false;
                     if (selectedTagId != null && !item.tags.any((tag) => tag.id == selectedTagId)) return false;
                     return true;
@@ -343,7 +360,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                             padding: const EdgeInsets.all(12),
                             child: moreFailed ? TextButton(
                               onPressed: _loadMore,
-                              child: const Text('Retry loading conversations'),
+                              child: Text(paginationError ?? 'Retry loading conversations'),
                             ) : loadingMore
                               ? const CircularProgressIndicator()
                               : TextButton(
