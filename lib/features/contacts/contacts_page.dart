@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/widgets/notiq_pagination.dart';
+import 'contact_models.dart';
 import 'contact_repository.dart';
 import 'contact_organize_page.dart';
 
@@ -15,14 +15,82 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
   String filter = '';
   bool searchOpen = false;
   int page = 1;
+  final scrollController = ScrollController();
+  final List<ContactItem> extraContacts = [];
+  bool loadingMore = false;
+  bool loadMoreFailed = false;
+  int generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    scrollController.addListener(() {
+      if (scrollController.hasClients &&
+          scrollController.position.extentAfter < 320) {
+        _loadMore();
+      }
+    });
+  }
+
+  void resetList() {
+    generation++;
+    page = 1;
+    extraContacts.clear();
+    loadMoreFailed = false;
+  }
+
+  Future<void> _loadMore() async {
+    if (!mounted || loadingMore) return;
+    final first = ref.read(
+      contactListProvider((page: 1, search: filter)),
+    ).valueOrNull;
+    if (first == null || page >= first.totalPages) return;
+    final nextPage = page + 1;
+    final searchAtStart = filter;
+    final requestGeneration = generation;
+    setState(() {
+      loadingMore = true;
+      loadMoreFailed = false;
+    });
+    try {
+      final next = await ref.read(contactRepositoryProvider).list(
+        page: nextPage, search: searchAtStart,
+      );
+      if (!mounted || generation != requestGeneration ||
+          filter != searchAtStart) {
+        return;
+      }
+      setState(() {
+        page = nextPage;
+        final knownIds = {
+          ...first.items.map((item) => item.id),
+          ...extraContacts.map((item) => item.id),
+        };
+        extraContacts.addAll(
+          next.items.where((item) => knownIds.add(item.id)),
+        );
+      });
+    } catch (_) {
+      if (mounted && generation == requestGeneration &&
+          filter == searchAtStart) {
+        setState(() => loadMoreFailed = true);
+      }
+    } finally {
+      if (mounted) setState(() => loadingMore = false);
+    }
+  }
+
   @override
   void dispose() {
+    scrollController.dispose();
     search.dispose();
     super.dispose();
   }
 
-  void reload() =>
-      ref.invalidate(contactListProvider((page: page, search: filter)));
+  void reload() {
+    setState(resetList);
+    ref.invalidate(contactListProvider((page: 1, search: filter)));
+  }
   Future<void> openCreate() async {
     await Navigator.push<void>(
       context,
@@ -45,7 +113,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final contacts = ref.watch(contactListProvider((page: page, search: filter)));
+    final contacts = ref.watch(contactListProvider((page: 1, search: filter)));
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     return Scaffold(
@@ -112,7 +180,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                 textInputAction: TextInputAction.search,
                 onSubmitted: (value) => setState(() {
                   filter = value.trim();
-                  page = 1;
+                  resetList();
                 }),
                 decoration: InputDecoration(
                   hintText: 'Search contacts',
@@ -123,7 +191,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                     onPressed: () => setState(() {
                       search.clear();
                       filter = '';
-                      page = 1;
+                      resetList();
                       searchOpen = false;
                     }),
                   ),
@@ -159,13 +227,14 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                 onRefresh: () async {
                   reload();
                   await ref.read(
-                    contactListProvider((page: page, search: filter)).future,
+                    contactListProvider((page: 1, search: filter)).future,
                   );
                 },
                 child: ListView(
+                  controller: scrollController,
                   physics: const AlwaysScrollableScrollPhysics(),
                   children: [
-                    for (final contact in data.items)
+                    for (final contact in [...data.items, ...extraContacts])
                       Column(children: [
                         ListTile(
                           contentPadding: const EdgeInsets.symmetric(
@@ -215,11 +284,25 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                         padding: EdgeInsets.all(36),
                         child: Center(child: Text('No contacts found')),
                       ),
-                    NotiqPagination(
-                      page: page,
-                      totalPages: data.totalPages,
-                      onPageChanged: (next) => setState(() => page = next),
-                    ),
+                    if (page < data.totalPages)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
+                        child: Center(
+                          child: loadMoreFailed
+                              ? TextButton(
+                                  onPressed: _loadMore,
+                                  child: const Text('Retry loading contacts'),
+                                )
+                              : loadingMore
+                                  ? const CircularProgressIndicator()
+                                  : TextButton(
+                                      onPressed: _loadMore,
+                                      child: const Text('Load more contacts'),
+                                    ),
+                        ),
+                      )
+                    else
+                      const SizedBox(height: 110),
                   ],
                 ),
               ),
