@@ -189,7 +189,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
   Future<void> _chooseAttachment() async {
     if (channel == 3 || uploading) return;
     try {
-      final picked = await FilePicker.platform.pickFiles(
+      final picked = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: const [
           'jpg', 'jpeg', 'png', 'webp', 'pdf', 'mp4',
