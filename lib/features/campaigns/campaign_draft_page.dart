@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -26,6 +27,8 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
   late final template = TextEditingController(
       text: widget.existing?.raw['templateId']?.toString() ?? '');
   bool useTemplate = false;
+  bool uploading = false;
+  Map<String, dynamic>? uploadedAttachment;
   int channel = 4;
   int audience = 3;
   bool saving = false;
@@ -93,11 +96,11 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
         'subject': subject.text.trim(),
         'body': body.text.trim(),
         'recipients': <Object>[],
-        'hasAttachment': widget.existing?.raw['hasAttachment'] == true,
-        'attachmentName': widget.existing?.raw['attachmentName'] ?? '',
-        'attachmentUrl': widget.existing?.raw['attachmentUrl'] ?? '',
-        'attachmentMimeType': widget.existing?.raw['attachmentMimeType'] ?? '',
-        'attachmentSize': widget.existing?.raw['attachmentSize'],
+        'hasAttachment': uploadedAttachment != null || widget.existing?.raw['hasAttachment'] == true,
+        'attachmentName': uploadedAttachment?['attachmentName'] ?? widget.existing?.raw['attachmentName'] ?? '',
+        'attachmentUrl': uploadedAttachment?['attachmentUrl'] ?? widget.existing?.raw['attachmentUrl'] ?? '',
+        'attachmentMimeType': uploadedAttachment?['attachmentMimeType'] ?? widget.existing?.raw['attachmentMimeType'] ?? '',
+        'attachmentSize': uploadedAttachment?['attachmentSize'] ?? widget.existing?.raw['attachmentSize'],
         'whatsAppCommerce': widget.existing?.raw['whatsAppCommerce'],
         'scheduledAtUtc': scheduledAt?.toUtc().toIso8601String(),
       }, id: widget.id);
@@ -173,6 +176,284 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
     );
   }
 
+  void _insert(String value) {
+    final selection = body.selection;
+    final position = selection.isValid ? selection.start : body.text.length;
+    final end = selection.isValid ? selection.end : position;
+    body.value = TextEditingValue(
+      text: body.text.replaceRange(position, end, value),
+      selection: TextSelection.collapsed(offset: position + value.length),
+    );
+  }
+
+  Future<void> _chooseAttachment() async {
+    if (channel == 3 || uploading) return;
+    try {
+      final picked = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const [
+          'jpg', 'jpeg', 'png', 'webp', 'pdf', 'mp4',
+          'mp3', 'ogg', 'doc', 'docx',
+        ],
+        withData: true,
+      );
+      if (!mounted || picked == null || picked.files.isEmpty) return;
+      final file = picked.files.single;
+      if (file.size == 0 || file.size > 25 * 1024 * 1024) {
+        setState(() => error = 'File must be between 1 byte and 25 MB.');
+        return;
+      }
+      if (file.bytes == null) {
+        setState(() => error = 'Cannot read the selected file.');
+        return;
+      }
+      setState(() { uploading = true; error = null; });
+      final uploaded = await ref.read(campaignRepositoryProvider).uploadAttachment(
+        channel: channel, name: file.name, bytes: file.bytes!,
+      );
+      if (mounted) setState(() => uploadedAttachment = uploaded);
+    } catch (_) {
+      if (mounted) setState(() => error = 'Upload failed. Please retry.');
+    } finally {
+      if (mounted) setState(() => uploading = false);
+    }
+  }
+
+  void _showTools() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('Message tools', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.attach_file_rounded),
+              title: const Text('Attach file'),
+              subtitle: Text(channel == 3
+                  ? 'Not supported for SMS' : 'Images, video, audio and documents (max 25 MB)'),
+              enabled: channel != 3 && !uploading,
+              onTap: () { Navigator.pop(sheetContext); _chooseAttachment(); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.emoji_emotions_outlined),
+              title: const Text('Emojis'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _showInsertOptions(['😀','😊','❤️','🎉','👍','🙏','🔥','✅','✨','👋']);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.data_object_rounded),
+              title: const Text('Placeholders'),
+              subtitle: const Text('Personalize for each recipient'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _showInsertOptions([
+                  '{{Name}}','{{RecipientName}}','{{MobileNumber}}',
+                  '{{WhatsAppNumber}}','{{Email}}','{{Tags}}','{{Date}}',
+                ]);
+              },
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  void _showInsertOptions(List<String> values) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+          child: Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final value in values)
+              ActionChip(
+                label: Text(value),
+                onPressed: () {
+                  Navigator.pop(sheetContext);
+                  _insert(value);
+                },
+              ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _messageStep(ThemeData theme) {
+    final colors = theme.colorScheme;
+    final templates = ref.watch(campaignTemplatesProvider);
+    final selectedId = optional(template);
+    final selectedTemplate = templates.valueOrNull
+        ?.where((item) => number(item['id']) == selectedId)
+        .firstOrNull;
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Your message', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 12),
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: false, label: Text('Custom'),
+                icon: Icon(Icons.chat_bubble_outline_rounded)),
+              ButtonSegment(value: true, label: Text('Template'),
+                icon: Icon(Icons.article_outlined)),
+            ],
+            selected: {useTemplate},
+            onSelectionChanged: saving ? null : (selection) {
+              setState(() {
+                useTemplate = selection.first;
+                if (!useTemplate) template.clear();
+                error = null;
+              });
+            },
+          ),
+        ]),
+      ),
+      if (useTemplate)
+        Expanded(child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          children: [
+            lookupField(label: 'Template', controller: template,
+              source: templates, requiredValue: true),
+            const SizedBox(height: 16),
+            if (selectedTemplate != null) ...[
+              Text('Message preview', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 10),
+              Card(child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (channel == 2 && (selectedTemplate['subject'] ?? '').toString().isNotEmpty) ...[
+                      Text(selectedTemplate['subject'].toString(),
+                        style: theme.textTheme.titleSmall),
+                      const SizedBox(height: 10),
+                    ],
+                    SelectableText((selectedTemplate['body'] ?? '').toString()),
+                  ],
+                ),
+              )),
+            ] else
+              Text('Select an active template to preview it.',
+                style: theme.textTheme.bodySmall),
+            const SizedBox(height: 10),
+            Text('Template content is managed on Notiq Web.',
+              style: theme.textTheme.bodySmall),
+          ],
+        ))
+      else ...[
+        if (channel == 2)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: TextField(controller: subject,
+              decoration: const InputDecoration(labelText: 'Email subject'),
+            ),
+          ),
+        Expanded(child: Container(
+          width: double.infinity,
+          color: colors.surfaceContainerLowest,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 28, 16, 20),
+            children: [
+              Center(child: Text('Message preview · not sent',
+                style: theme.textTheme.bodySmall)),
+              const SizedBox(height: 22),
+              if (body.text.trim().isNotEmpty || uploadedAttachment != null)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 300),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: colors.primaryContainer,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      padding: const EdgeInsets.all(14),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (body.text.trim().isNotEmpty)
+                            SelectableText(body.text, style: TextStyle(
+                              color: colors.onPrimaryContainer)),
+                          if (uploadedAttachment != null) ...[
+                            if (body.text.isNotEmpty) const SizedBox(height: 10),
+                            Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.attach_file_rounded,
+                                color: colors.onPrimaryContainer, size: 18),
+                              const SizedBox(width: 6),
+                              Flexible(child: Text(
+                                uploadedAttachment!['attachmentName'].toString(),
+                                style: TextStyle(color: colors.onPrimaryContainer),
+                                overflow: TextOverflow.ellipsis)),
+                            ]),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Center(child: Text('Start typing to preview your message',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall)),
+            ],
+          ),
+        )),
+        if (uploadedAttachment != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+            child: InputChip(
+              label: Text(uploadedAttachment!['attachmentName'].toString(),
+                overflow: TextOverflow.ellipsis),
+              onDeleted: () => setState(() => uploadedAttachment = null),
+            ),
+          ),
+        if (uploading) const LinearProgressIndicator(),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            IconButton.filledTonal(
+              tooltip: 'Message tools',
+              onPressed: uploading ? null : _showTools,
+              icon: const Icon(Icons.add_rounded),
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: TextField(
+              controller: body,
+              minLines: 1,
+              maxLines: 5,
+              keyboardType: TextInputType.multiline,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                hintText: 'Type a message…',
+                isDense: true,
+              ),
+            )),
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: 'Message preview updates automatically',
+              onPressed: null,
+              icon: const Icon(Icons.visibility_outlined),
+            ),
+          ]),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(right: 16, bottom: 6),
+          child: Align(alignment: Alignment.centerRight,
+            child: Text('${body.text.characters.length} characters',
+              style: theme.textTheme.bodySmall)),
+        ),
+      ],
+    ]);
+  }
+
   Widget _summaryRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 11),
@@ -209,7 +490,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
                 borderRadius: BorderRadius.circular(6)),
             ]),
           ),
-          Expanded(child: ListView(
+          Expanded(child: step == 1 ? _messageStep(theme) : ListView(
             padding: const EdgeInsets.all(16),
             children: [
               if (step == 0) ...[
@@ -264,128 +545,6 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
                   label: 'Provider',
                   controller: provider,
                   source: ref.watch(campaignProvidersProvider),
-                ),
-              ],
-              if (step == 1) ...[
-                Text('Compose message', style: theme.textTheme.titleMedium),
-                const SizedBox(height: 6),
-                Text('Choose a saved template or write your own message.',
-                  style: theme.textTheme.bodySmall),
-                const SizedBox(height: 18),
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: false,
-                      icon: Icon(Icons.edit_outlined),
-                      label: Text('Write manually')),
-                    ButtonSegment(value: true,
-                      icon: Icon(Icons.description_outlined),
-                      label: Text('Use template')),
-                  ],
-                  selected: {useTemplate},
-                  onSelectionChanged: saving ? null : (selection) {
-                    setState(() {
-                      useTemplate = selection.first;
-                      if (!useTemplate) template.clear();
-                      error = null;
-                    });
-                  },
-                ),
-                const SizedBox(height: 20),
-                if (useTemplate) ...[
-                  lookupField(
-                    label: 'Template',
-                    controller: template,
-                    source: ref.watch(campaignTemplatesProvider),
-                  ),
-                  const SizedBox(height: 10),
-                  Text('Select a template to use its saved content. You can also '
-                    'switch to manual writing.',
-                    style: theme.textTheme.bodySmall),
-                  const SizedBox(height: 18),
-                ] else ...[
-                  Row(children: [
-                    Icon(Icons.edit_note_rounded,
-                      color: theme.colorScheme.primary),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text('Custom message',
-                      style: theme.textTheme.titleSmall)),
-                  ]),
-                  const SizedBox(height: 12),
-                ],
-                if (channel == 2) ...[
-                  TextField(
-                    controller: subject,
-                    maxLength: 150,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'Email subject',
-                      hintText: 'Add a clear subject line',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                TextField(
-                  controller: body,
-                  minLines: 5,
-                  maxLines: 9,
-                  keyboardType: TextInputType.multiline,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: InputDecoration(
-                    labelText: 'Message',
-                    alignLabelWithHint: true,
-                    hintText: channel == 2
-                        ? 'Write your email content…'
-                        : channel == 3
-                            ? 'Write your SMS…'
-                            : 'Write your WhatsApp message…',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(channel == 3
-                        ? 'SMS · Character count only'
-                        : channel == 2 ? 'Email message' : 'WhatsApp message',
-                        style: theme.textTheme.bodySmall),
-                    Text('${body.text.characters.length} characters',
-                      style: theme.textTheme.bodySmall),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                if (body.text.trim().isNotEmpty) ...[
-                  Text('Preview', style: theme.textTheme.titleSmall),
-                  const SizedBox(height: 10),
-                  Card(
-                    margin: EdgeInsets.zero,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (channel == 2 &&
-                              subject.text.trim().isNotEmpty) ...[
-                            Text(subject.text.trim(),
-                              style: theme.textTheme.titleSmall),
-                            const SizedBox(height: 10),
-                          ],
-                          Text(body.text.trim()),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                Row(crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.info_outline_rounded, size: 18,
-                      color: theme.colorScheme.onSurfaceVariant),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(
-                      'Preview shows typed text only. Provider, template and '
-                      'consent rules are validated by the server.',
-                      style: theme.textTheme.bodySmall,
-                    )),
-                  ],
                 ),
               ],
               if (step == 2) ...[
@@ -483,6 +642,14 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
                       (name.text.trim().isEmpty ||
                       (audience == 3 && optional(group) == null))) {
                     setState(() => error = 'Select a contact group to continue.');
+                    return;
+                  }
+                  if (step == 1 && (useTemplate
+                      ? optional(template) == null
+                      : body.text.trim().isEmpty)) {
+                    setState(() => error = useTemplate
+                        ? 'Choose a template to continue.'
+                        : 'Write your message to continue.');
                     return;
                   }
                   if (step < 2) {
