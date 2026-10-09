@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'campaign_repository.dart';
 
 class CampaignDraftPage extends ConsumerStatefulWidget {
@@ -11,7 +12,10 @@ class CampaignDraftPage extends ConsumerStatefulWidget {
 }
 
 class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
-  late final name = TextEditingController(text: widget.existing?.name ?? '');
+  late final name = TextEditingController(
+    text: widget.existing?.name ??
+        'Campaign - ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}',
+  );
   late final subject = TextEditingController(
       text: widget.existing?.raw['subject']?.toString() ?? '');
   late final body = TextEditingController(
@@ -61,7 +65,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
     }
     if (name.text.trim().isEmpty ||
         (audience == 3 && optional(group) == null)) {
-      setState(() => error = 'Enter a campaign name and a valid group ID');
+      setState(() => error = 'Select a contact group to continue.');
       return;
     }
     setState(() {
@@ -153,7 +157,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
             )),
           ],
           onChanged: saving ? null : (value) =>
-              setState(() => controller.text = value?.toString() ?? ''),
+              setState(() { controller.text = value?.toString() ?? ''; error = null; }),
         );
       },
     );
@@ -181,11 +185,12 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
             padding: const EdgeInsets.all(16),
             children: [
               if (step == 0) ...[
-                Text('Who will receive this campaign?',
-                  style: theme.textTheme.titleMedium),
-                const SizedBox(height: 16),
+                const SizedBox(height: 2),
                 TextField(controller: name,
-                  decoration: const InputDecoration(labelText: 'Campaign name')),
+                  decoration: const InputDecoration(
+                    labelText: 'Campaign name',
+                    helperText: 'Auto-filled · you can rename it',
+                  )),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
                   initialValue: audience,
@@ -195,7 +200,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
                     DropdownMenuItem(value: 3, child: Text('Contact group')),
                   ],
                   onChanged: saving ? null : (value) =>
-                    setState(() => audience = value ?? 3),
+                    setState(() { audience = value ?? 3; error = null; }),
                 ),
                 if (audience == 3) ...[
                   const SizedBox(height: 16),
@@ -209,7 +214,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
               ],
               if (step == 0) ...[
                 const SizedBox(height: 22),
-                Text('Choose channel and sender', style: theme.textTheme.titleLarge),
+                Text('Channel', style: theme.textTheme.titleMedium),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
                   initialValue: channel,
@@ -312,7 +317,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
                   if (step == 0 &&
                       (name.text.trim().isEmpty ||
                       (audience == 3 && optional(group) == null))) {
-                    setState(() => error = 'Enter a campaign name and select a contact group.');
+                    setState(() => error = 'Select a contact group to continue.');
                     return;
                   }
                   if (step < 2) {
