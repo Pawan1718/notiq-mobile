@@ -58,7 +58,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<int?>(
-                value: pendingStatus,
+                initialValue: pendingStatus,
                 decoration: const InputDecoration(labelText: 'Status'),
                 items: const [
                   DropdownMenuItem<int?>(value: null, child: Text('Any status')),
@@ -70,7 +70,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<int?>(
-                value: pendingMode,
+                initialValue: pendingMode,
                 decoration: const InputDecoration(labelText: 'Mode'),
                 items: const [
                   DropdownMenuItem<int?>(value: null, child: Text('Any mode')),
