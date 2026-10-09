@@ -46,9 +46,9 @@ class MorePage extends ConsumerWidget {
               title: 'Communication',
               items: [
                 _MenuItem('Providers', Icons.settings_input_component_outlined,
-                  'WhatsApp, SMS & Email'),
+                  'WhatsApp, SMS & Email', page: ProviderCatalogPage()),
                 _MenuItem('Templates', Icons.article_outlined,
-                  'Message templates'),
+                  'Message templates', page: TemplateCatalogPage()),
                 _MenuItem('AI & automation', Icons.auto_awesome_outlined,
                   'Bot and routing settings'),
                 _MenuItem('Webhooks', Icons.webhook_outlined,
