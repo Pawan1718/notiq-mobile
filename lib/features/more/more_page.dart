@@ -1,62 +1,90 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_controller.dart';
 
-/// Directory of currently available mobile workspace features.
-/// Modules without a mobile implementation are deliberately not clickable.
+/// Workspace settings directory. Unsupported mobile destinations are disabled.
 class MorePage extends ConsumerWidget {
   const MorePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('More')),
       body: SafeArea(
+        top: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
           children: [
-            Text('Workspace', style: theme.textTheme.headlineSmall),
-            const SizedBox(height: 6),
-            Text('Manage your daily communication work',
-                style: theme.textTheme.bodySmall),
-            const SizedBox(height: 20),
-            _WorkspaceLink(
-              icon: Icons.dashboard_outlined,
-              title: 'Dashboard',
-              subtitle: 'Message totals, channels and activity',
-              onTap: () => context.go('/dashboard'),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: theme.dividerColor),
+              ),
+              child: Row(children: [
+                CircleAvatar(
+                  backgroundColor: colors.primaryContainer,
+                  child: Icon(Icons.business_outlined, color: colors.onPrimaryContainer),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Workspace', style: theme.textTheme.titleMedium),
+                    Text('Settings and account tools',
+                      style: theme.textTheme.bodySmall),
+                  ],
+                )),
+              ]),
             ),
-            _WorkspaceLink(
-              icon: Icons.chat_bubble_outline,
-              title: 'Inbox',
-              subtitle: 'Conversations and replies',
-              onTap: () => context.go('/inbox'),
-            ),
-            _WorkspaceLink(
-              icon: Icons.campaign_outlined,
-              title: 'Campaigns',
-              subtitle: 'Drafts, scheduling and reports',
-              onTap: () => context.go('/campaigns'),
-            ),
-            _WorkspaceLink(
-              icon: Icons.people_outline,
-              title: 'Contacts',
-              subtitle: 'Contacts and channel consent',
-              onTap: () => context.go('/contacts'),
+            const SizedBox(height: 24),
+            const _MenuSection(
+              title: 'Communication',
+              items: [
+                _MenuItem('Providers', Icons.settings_input_component_outlined,
+                  'WhatsApp, SMS & Email'),
+                _MenuItem('Templates', Icons.article_outlined,
+                  'Message templates'),
+                _MenuItem('AI & automation', Icons.auto_awesome_outlined,
+                  'Bot and routing settings'),
+                _MenuItem('Webhooks', Icons.webhook_outlined,
+                  'Events and integrations'),
+              ],
             ),
             const SizedBox(height: 22),
-            Text('Additional tools', style: theme.textTheme.titleLarge),
-            const SizedBox(height: 10),
-            const _UpcomingTool(title: 'Templates & providers', icon: Icons.tune),
-            const _UpcomingTool(title: 'KRAG AI & team', icon: Icons.auto_awesome_outlined),
-            const _UpcomingTool(title: 'Billing & settings', icon: Icons.settings_outlined),
+            const _MenuSection(
+              title: 'Workspace',
+              items: [
+                _MenuItem('Team members', Icons.group_outlined,
+                  'Workspace access'),
+                _MenuItem('Roles & permissions', Icons.admin_panel_settings_outlined,
+                  'Access control'),
+                _MenuItem('Plan & billing', Icons.credit_card_outlined,
+                  'Subscription details'),
+                _MenuItem('Usage & costs', Icons.bar_chart_outlined,
+                  'Communication usage'),
+              ],
+            ),
+            const SizedBox(height: 22),
+            const _MenuSection(
+              title: 'Account',
+              items: [
+                _MenuItem('My profile', Icons.person_outline_rounded,
+                  'Personal information'),
+                _MenuItem('Preferences', Icons.tune_rounded,
+                  'App preferences'),
+                _MenuItem('Help & support', Icons.help_outline_rounded,
+                  'Support resources'),
+              ],
+            ),
             const SizedBox(height: 20),
             OutlinedButton.icon(
               onPressed: () => ref.read(authProvider.notifier).logout(),
-              icon: const Icon(Icons.logout),
-              label: const Text('Sign out'),
+              icon: Icon(Icons.logout_rounded, color: colors.error),
+              label: Text('Sign out', style: TextStyle(color: colors.error)),
             ),
           ],
         ),
@@ -65,43 +93,58 @@ class MorePage extends ConsumerWidget {
   }
 }
 
-class _WorkspaceLink extends StatelessWidget {
-  const _WorkspaceLink({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final IconData icon;
+class _MenuItem {
+  const _MenuItem(this.title, this.icon, this.subtitle);
   final String title;
+  final IconData icon;
   final String subtitle;
-  final VoidCallback onTap;
+}
+
+class _MenuSection extends StatelessWidget {
+  const _MenuSection({required this.title, required this.items});
+  final String title;
+  final List<_MenuItem> items;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
-      title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: onTap,
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 10),
+          child: Text(title, style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+          )),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: colors.surface,
+            border: Border.all(color: theme.dividerColor),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(children: [
+            for (var index = 0; index < items.length; index++) ...[
+              if (index > 0) const Divider(height: 1, indent: 54),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+                dense: true,
+                leading: Icon(items[index].icon, color: colors.primary, size: 21),
+                title: Text(items[index].title,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  )),
+                subtitle: Text(items[index].subtitle,
+                  style: theme.textTheme.bodySmall),
+                trailing: Text('Soon', style: theme.textTheme.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                )),
+              ),
+            ],
+          ]),
+        ),
+      ],
     );
   }
-}
-
-class _UpcomingTool extends StatelessWidget {
-  const _UpcomingTool({required this.title, required this.icon});
-  final String title;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) => ListTile(
-    enabled: false,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 6),
-    leading: Icon(icon),
-    title: Text(title),
-    trailing: const Text('Coming soon'),
-  );
 }
