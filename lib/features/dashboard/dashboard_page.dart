@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_controller.dart';
-import '../../core/theme/notiq_brand.dart';
 import '../../core/widgets/notiq_metric_card.dart';
 import '../../core/widgets/notiq_page_state.dart';
 import 'dashboard_models.dart';
@@ -17,7 +16,7 @@ class DashboardPage extends ConsumerWidget {
     final metrics = ref.watch(dashboardMetricsProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const NotiqBrand(compact: false),
+        title: const SizedBox.shrink(),
         actions: [
           IconButton(
             tooltip: 'Refresh dashboard',
@@ -75,10 +74,6 @@ class _DashboardContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    // A delivery percentage is not inferred: 'sent' may include messages
-    // whose delivery status hasn't been confirmed yet.
     return LayoutBuilder(
       builder: (context, constraints) {
         final horizontal = constraints.maxWidth >= 600 ? 24.0 : 16.0;
@@ -86,18 +81,6 @@ class _DashboardContent extends StatelessWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.fromLTRB(horizontal, 14, horizontal, 28),
           children: [
-            Text(
-              'Workspace overview',
-              style: theme.textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Your communication activity at a glance',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colors.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 20),
             _SectionTitle(
               title: 'Message activity',
               subtitle: 'Workspace totals',
@@ -280,9 +263,14 @@ class _SectionTitle extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: theme.textTheme.titleLarge),
-        const SizedBox(height: 3),
-        Text(subtitle, style: theme.textTheme.bodySmall),
+        Text(
+          title,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
+          ),
+        ),
       ],
     );
   }
