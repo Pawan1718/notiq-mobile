@@ -14,6 +14,10 @@ class InboxPage extends ConsumerStatefulWidget {
 
 class _InboxPageState extends ConsumerState<InboxPage> {
   int page = 1;
+  final scrollController = ScrollController();
+  final List<InboxConversation> extraConversations = [];
+  bool loadingMore = false;
+  bool moreFailed = false;
   bool unreadOnly = false;
   String search = '';
   bool searchOpen = false;
@@ -26,9 +30,15 @@ class _InboxPageState extends ConsumerState<InboxPage> {
   @override
   void initState() {
     super.initState();
+    scrollController.addListener(() {
+      if (scrollController.hasClients &&
+          scrollController.position.extentAfter < 350) {
+        _loadMore();
+      }
+    });
     realtimeSubscription = ref.listenManual(inboxRealtimeProvider, (_, next) {
       if (next.valueOrNull != null && mounted) {
-        ref.invalidate(inboxFilteredProvider((page: page, search: search, status: statusFilter, mode: modeFilter)));
+        ref.invalidate(inboxFilteredProvider((page: 1, search: search, status: statusFilter, mode: modeFilter)));
       }
     });
   }
@@ -37,7 +47,51 @@ class _InboxPageState extends ConsumerState<InboxPage> {
   void dispose() {
     realtimeSubscription.close();
     searchController.dispose();
+    scrollController.dispose();
     super.dispose();
+  }
+
+  void resetInbox() {
+    page = 1;
+    extraConversations.clear();
+    moreFailed = false;
+  }
+
+  Future<void> _loadMore() async {
+    if (loadingMore || !mounted) return;
+    final filter = (page: 1, search: search, status: statusFilter, mode: modeFilter);
+    final current = ref.read(inboxFilteredProvider(filter)).valueOrNull;
+    if (current == null || page >= current.totalPages) return;
+    final nextPage = page + 1;
+    final expectedSearch = search;
+    final expectedStatus = statusFilter;
+    final expectedMode = modeFilter;
+    setState(() { loadingMore = true; moreFailed = false; });
+    try {
+      final next = await ref.read(inboxRepositoryProvider).conversations(
+        page: nextPage, search: expectedSearch,
+        status: expectedStatus, mode: expectedMode,
+      );
+      if (!mounted || search != expectedSearch ||
+          statusFilter != expectedStatus || modeFilter != expectedMode) return;
+      setState(() {
+        page = nextPage;
+        final existingIds = {
+          ...current.items.map((item) => item.id),
+          ...extraConversations.map((item) => item.id),
+        };
+        extraConversations.addAll(
+          next.items.where((item) => existingIds.add(item.id)),
+        );
+      });
+    } catch (_) {
+      if (mounted && search == expectedSearch &&
+          statusFilter == expectedStatus && modeFilter == expectedMode) {
+        setState(() => moreFailed = true);
+      }
+    } finally {
+      if (mounted) setState(() => loadingMore = false);
+    }
   }
 
   Future<void> _showAdvancedFilters() async {
@@ -94,14 +148,14 @@ class _InboxPageState extends ConsumerState<InboxPage> {
       setState(() {
         statusFilter = result.status;
         modeFilter = result.mode;
-        page = 1;
+        resetInbox();
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final filter = (page: page, search: search, status: statusFilter, mode: modeFilter);
+    final filter = (page: 1, search: search, status: statusFilter, mode: modeFilter);
     final result = ref.watch(inboxFilteredProvider(filter));
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
@@ -151,7 +205,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                   textInputAction: TextInputAction.search,
                   onSubmitted: (value) => setState(() {
                     search = value.trim();
-                    page = 1;
+                    resetInbox();
                   }),
                   decoration: InputDecoration(
                     hintText: 'Search inbox',
@@ -162,7 +216,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                       onPressed: () => setState(() {
                         searchOpen = false;
                         search = '';
-                        page = 1;
+                        resetInbox();
                         searchController.clear();
                       }),
                     ),
@@ -179,7 +233,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                   onSelected: (_) => setState(() {
                     unreadOnly = false;
                     selectedTagId = null;
-                    page = 1;
+                    resetInbox();
                   }),
                 ),
                 const SizedBox(width: 8),
@@ -244,19 +298,21 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                   onPressed: () => ref.invalidate(inboxFilteredProvider(filter)),
                 )),
                 data: (data) {
-                  final matches = data.items.where((item) {
+                  final matches = [...data.items, ...extraConversations].where((item) {
                     if (unreadOnly && item.unreadCount == 0) return false;
                     if (selectedTagId != null && !item.tags.any((tag) => tag.id == selectedTagId)) return false;
                     return true;
                   }).toList();
                   return RefreshIndicator(
                     onRefresh: () async {
+                      setState(resetInbox);
                       ref.invalidate(inboxFilteredProvider(filter));
                       await ref.read(inboxFilteredProvider(filter).future);
                     },
                     child: ListView.separated(
                       physics: const AlwaysScrollableScrollPhysics(),
-                      itemCount: matches.isEmpty ? 1 : matches.length,
+                      controller: scrollController,
+                      itemCount: matches.isEmpty ? 1 : matches.length + (page < data.totalPages ? 1 : 0),
                       separatorBuilder: (_, __) => const Divider(height: 1, indent: 78),
                       itemBuilder: (context, index) {
                         if (matches.isEmpty) {
@@ -275,6 +331,20 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                               ],
                             ),
                           );
+                        }
+                        if (index == matches.length) {
+                          return Center(child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: moreFailed ? TextButton(
+                              onPressed: _loadMore,
+                              child: const Text('Retry loading conversations'),
+                            ) : loadingMore
+                              ? const CircularProgressIndicator()
+                              : TextButton(
+                                  onPressed: _loadMore,
+                                  child: const Text('Load more conversations'),
+                                ),
+                          ));
                         }
                         final item = matches[index];
                         final name = item.contactName.isEmpty
