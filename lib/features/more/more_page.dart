@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_controller.dart';
 import 'readonly_catalog_pages.dart';
 import 'workspace_read_pages.dart';
+import 'preferences_help_page.dart';
 
 /// Workspace settings directory. Unsupported mobile destinations are disabled.
 class MorePage extends ConsumerWidget {
@@ -71,15 +72,15 @@ class MorePage extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 22),
-            const _MenuSection(
+            _MenuSection(
               title: 'Account',
               items: [
                 _MenuItem('My profile', Icons.person_outline_rounded,
                   'Personal information'),
                 _MenuItem('Preferences', Icons.tune_rounded,
-                  'App preferences'),
+                  'App preferences', page: PreferencesPage()),
                 _MenuItem('Help & support', Icons.help_outline_rounded,
-                  'Support resources'),
+                  'Support resources', page: HelpSupportPage()),
               ],
             ),
             const SizedBox(height: 20),
