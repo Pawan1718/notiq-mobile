@@ -465,6 +465,21 @@ class _ContactEditorPageState extends ConsumerState<ContactEditorPage> {
                           const SizedBox(height: 24),
                           Text('Organize', style: theme.textTheme.titleMedium),
                           const SizedBox(height: 10),
+                          Row(children: [
+                            Expanded(child: Text('Groups',
+                              style: theme.textTheme.titleSmall)),
+                            TextButton(
+                              onPressed: () async {
+                                await Navigator.push<void>(
+                                  context,
+                                  MaterialPageRoute(builder: (_) =>
+                                    const ContactOrganizePage(type: 'groups')),
+                                );
+                                ref.invalidate(contactGroupsProvider);
+                              },
+                              child: const Text('Manage'),
+                            ),
+                          ]),
                           _MultiContactLookup(
                             title: 'Groups',
                             selected: selectedGroups,
@@ -472,6 +487,21 @@ class _ContactEditorPageState extends ConsumerState<ContactEditorPage> {
                             onChange: (values) => setState(() => selectedGroups = values),
                           ),
                           const SizedBox(height: 10),
+                          Row(children: [
+                            Expanded(child: Text('Labels',
+                              style: theme.textTheme.titleSmall)),
+                            TextButton(
+                              onPressed: () async {
+                                await Navigator.push<void>(
+                                  context,
+                                  MaterialPageRoute(builder: (_) =>
+                                    const ContactOrganizePage(type: 'tags')),
+                                );
+                                ref.invalidate(contactTagsProvider);
+                              },
+                              child: const Text('Manage'),
+                            ),
+                          ]),
                           _MultiContactLookup(
                             title: 'Labels',
                             selected: selectedTags,
@@ -620,9 +650,19 @@ class _MultiContactLookup extends ConsumerWidget {
         : Wrap(spacing: 8, runSpacing: 2,
             children: items.map((item) {
               final id = (item['id'] as num).toInt();
+              final isLabel = title == 'Labels';
+              const palette = [
+                Color(0xFF7C6CFF), Color(0xFF16A695),
+                Color(0xFFE1A33F), Color(0xFFDB718C),
+                Color(0xFF5B9AE5), Color(0xFF9C77C9),
+              ];
+              final color = palette[id.abs() % palette.length];
               return FilterChip(
+                avatar: isLabel ? Icon(Icons.circle, size: 11, color: color) : null,
                 label: Text((item['name'] ?? '').toString()),
                 selected: selected.contains(id),
+                selectedColor: isLabel ? color.withValues(alpha: 0.20) : null,
+
                 onSelected: (checked) {
                   final next = {...selected};
                   if (checked) { next.add(id); } else { next.remove(id); }
