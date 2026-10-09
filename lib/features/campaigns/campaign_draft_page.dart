@@ -163,6 +163,24 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
     );
   }
 
+  Widget _summaryRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 11),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(
+          width: 80,
+          child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: Text(value,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
+        )),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -257,46 +275,79 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
                   style: theme.textTheme.bodySmall),
               ],
               if (step == 2) ...[
-                Text('When should it be sent?', style: theme.textTheme.titleLarge),
-                const SizedBox(height: 12),
-                ListTile(
-                  leading: Icon(scheduledAt == null
-                      ? Icons.radio_button_checked : Icons.radio_button_unchecked),
-                  title: const Text('No schedule yet'),
-                  subtitle: const Text('Save draft and decide later'),
-                  onTap: saving ? null : () => setState(() => scheduledAt = null),
+                Text('Schedule', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 10),
+                Card(
+                  margin: EdgeInsets.zero,
+                  child: Column(children: [
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      leading: Icon(scheduledAt == null
+                          ? Icons.radio_button_checked : Icons.radio_button_unchecked),
+                      onTap: saving ? null : () => setState(() => scheduledAt = null),
+                      title: const Text('Save without schedule'),
+                      subtitle: const Text('You can schedule or publish later'),
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      leading: Icon(scheduledAt != null
+                          ? Icons.radio_button_checked : Icons.radio_button_unchecked),
+                      onTap: saving ? null : chooseSchedule,
+                      title: const Text('Schedule for later'),
+                      subtitle: scheduledAt == null
+                          ? const Text('Choose a date and time')
+                          : Text(DateFormat('dd MMM yyyy, hh:mm a').format(scheduledAt!)),
+                    ),
+                    if (scheduledAt != null)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 12, bottom: 8),
+                          child: TextButton.icon(
+                            onPressed: saving ? null : chooseSchedule,
+                            icon: const Icon(Icons.edit_calendar_outlined, size: 18),
+                            label: const Text('Change time'),
+                          ),
+                        ),
+                      ),
+                  ]),
                 ),
-                ListTile(
-                  leading: Icon(scheduledAt != null
-                      ? Icons.radio_button_checked : Icons.radio_button_unchecked),
-                  title: const Text('Schedule for later'),
-                  onTap: saving ? null : chooseSchedule,
-                ),
-                if (scheduledAt != null) ListTile(
-                  leading: const Icon(Icons.event_available_outlined),
-                  title: Text(scheduledAt!.toLocal().toString().substring(0, 16)),
-                  trailing: TextButton(onPressed: chooseSchedule,
-                    child: const Text('Change')),
-                ),
-              ],
-              if (step == 2) ...[
                 const SizedBox(height: 22),
-                Text('Review draft', style: theme.textTheme.titleLarge),
+                Text('Campaign summary', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 10),
+                Card(
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    child: Column(children: [
+                      _summaryRow('Name', name.text),
+                      const Divider(height: 1),
+                      _summaryRow('Audience', audience == 2
+                          ? 'All contacts' : 'Contact group'),
+                      const Divider(height: 1),
+                      _summaryRow('Channel', switch (channel) {
+                        2 => 'Email', 3 => 'SMS', _ => 'WhatsApp'
+                      }),
+                      const Divider(height: 1),
+                      _summaryRow('Provider', provider.text.isEmpty
+                          ? 'Default' : 'Selected provider'),
+                      const Divider(height: 1),
+                      _summaryRow('Template', template.text.isEmpty
+                          ? 'None' : 'Selected template'),
+                    ]),
+                  ),
+                ),
                 const SizedBox(height: 12),
-                ListTile(title: const Text('Name'), subtitle: Text(name.text)),
-                ListTile(title: const Text('Audience'),
-                  subtitle: Text(audience == 2 ? 'All contacts' : 'Group: ${group.text}')),
-                ListTile(title: const Text('Channel'),
-                  subtitle: Text(switch (channel) { 2 => 'Email', 3 => 'SMS', _ => 'WhatsApp' })),
-                ListTile(title: const Text('Provider'),
-                  subtitle: Text(provider.text.isEmpty ? 'Default' : provider.text)),
-                ListTile(title: const Text('Template'),
-                  subtitle: Text(template.text.isEmpty ? 'None' : template.text)),
-                ListTile(title: const Text('Schedule'),
-                  subtitle: Text(scheduledAt?.toString() ?? 'Not scheduled')),
-                const SizedBox(height: 8),
-                Text('Saving creates/updates a draft. Publishing is a separate confirmed action.',
-                  style: theme.textTheme.bodySmall),
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Icon(Icons.info_outline_rounded, size: 18,
+                      color: theme.colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(
+                    'Save draft does not send messages. Publishing is a separate confirmed action.',
+                    style: theme.textTheme.bodySmall,
+                  )),
+                ]),
               ],
               if (error != null) ...[
                 const SizedBox(height: 12),
@@ -305,7 +356,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
             ],
           )),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
             child: Row(children: [
               if (step > 0) OutlinedButton(
                 onPressed: saving ? null : () => setState(() { step--; error = null; }),
