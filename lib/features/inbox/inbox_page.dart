@@ -85,10 +85,12 @@ class _InboxPageState extends ConsumerState<InboxPage> {
         return;
       }
       if (next.items.isEmpty) {
-        if (mounted) setState(() {
-          moreFailed = true;
-          paginationError = 'No additional conversations returned. Retry.';
-        });
+        if (mounted) {
+          setState(() {
+            moreFailed = true;
+            paginationError = 'No additional conversations returned. Retry.';
+          });
+        }
         return;
       }
       setState(() {
