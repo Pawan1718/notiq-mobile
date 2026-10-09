@@ -452,7 +452,8 @@ class _ContactEditorPageState extends ConsumerState<ContactEditorPage> {
                       ]),
                     ),
                   ]),
-                );
+                ),
+    );
   }
 }
 
