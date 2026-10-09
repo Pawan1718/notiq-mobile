@@ -16,6 +16,8 @@ class _InboxPageState extends ConsumerState<InboxPage> {
   int page = 1;
   bool unreadOnly = false;
   String search = '';
+  bool searchOpen = false;
+  int? selectedTagId;
   int? statusFilter;
   int? modeFilter;
   final searchController = TextEditingController();
@@ -38,6 +40,65 @@ class _InboxPageState extends ConsumerState<InboxPage> {
     super.dispose();
   }
 
+  Future<void> _showAdvancedFilters() async {
+    int? pendingStatus = statusFilter;
+    int? pendingMode = modeFilter;
+    final result = await showModalBottomSheet<({int? status, int? mode})>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, updateSheet) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Inbox filters', style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<int?>(
+                initialValue: pendingStatus,
+                decoration: const InputDecoration(labelText: 'Status'),
+                items: const [
+                  DropdownMenuItem<int?>(value: null, child: Text('Any status')),
+                  DropdownMenuItem<int?>(value: 1, child: Text('Open')),
+                  DropdownMenuItem<int?>(value: 3, child: Text('Pending')),
+                  DropdownMenuItem<int?>(value: 2, child: Text('Resolved')),
+                ],
+                onChanged: (value) => updateSheet(() => pendingStatus = value),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int?>(
+                initialValue: pendingMode,
+                decoration: const InputDecoration(labelText: 'Mode'),
+                items: const [
+                  DropdownMenuItem<int?>(value: null, child: Text('Any mode')),
+                  DropdownMenuItem<int?>(value: 1, child: Text('Bot')),
+                  DropdownMenuItem<int?>(value: 2, child: Text('Human')),
+                ],
+                onChanged: (value) => updateSheet(() => pendingMode = value),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(width: double.infinity, child: FilledButton(
+                onPressed: () => Navigator.pop(sheetContext,
+                    (status: pendingStatus, mode: pendingMode)),
+                child: const Text('Apply filters'),
+              )),
+            ]),
+          ),
+        ),
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        statusFilter = result.status;
+        modeFilter = result.mode;
+        page = 1;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final filter = (page: page, search: search, status: statusFilter, mode: modeFilter);
@@ -48,76 +109,130 @@ class _InboxPageState extends ConsumerState<InboxPage> {
       appBar: AppBar(
         title: const Text('Inbox'),
         actions: [
-          IconButton(
-            tooltip: 'Refresh conversations',
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => ref.invalidate(inboxFilteredProvider(filter)),
+          PopupMenuButton<String>(
+            tooltip: 'Inbox actions',
+            icon: const Icon(Icons.more_vert_rounded),
+            onSelected: (value) {
+              if (value == 'refresh') {
+                ref.invalidate(inboxFilteredProvider(filter));
+              } else if (value == 'filters') {
+                _showAdvancedFilters();
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'filters', child: Text('Status & mode filters')),
+              PopupMenuItem(value: 'refresh', child: Text('Refresh')),
+              PopupMenuDivider(),
+              PopupMenuItem(enabled: false, child: Text('Create group · Not available')),
+              PopupMenuItem(enabled: false, child: Text('Add label · Not available')),
+              PopupMenuItem(enabled: false, child: Text('Handoff · Open a chat')),
+            ],
           ),
         ],
       ),
+      floatingActionButton: searchOpen
+          ? null
+          : FloatingActionButton(
+              tooltip: 'Search conversations',
+              onPressed: () => setState(() => searchOpen = true),
+              child: const Icon(Icons.search_rounded),
+            ),
       body: SafeArea(
         top: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-              child: Text('Conversations', style: theme.textTheme.headlineSmall),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-              child: TextField(
-                controller: searchController,
-                onSubmitted: (value) => setState(() { search = value.trim(); page = 1; }),
-                decoration: const InputDecoration(
-                  hintText: 'Search all conversations',
-                  prefixIcon: Icon(Icons.search_rounded),
-                  isDense: true,
+            if (searchOpen)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: TextField(
+                  controller: searchController,
+                  autofocus: true,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (value) => setState(() {
+                    search = value.trim();
+                    page = 1;
+                  }),
+                  decoration: InputDecoration(
+                    hintText: 'Search inbox',
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: IconButton(
+                      tooltip: 'Close search',
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => setState(() {
+                        searchOpen = false;
+                        search = '';
+                        page = 1;
+                        searchController.clear();
+                      }),
+                    ),
+                    isDense: true,
+                  ),
                 ),
               ),
-            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                children: [
-                  ChoiceChip(
-                    label: const Text('All'),
-                    selected: !unreadOnly,
-                    onSelected: (_) => setState(() => unreadOnly = false),
-                  ),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: const Text('Unread'),
-                    selected: unreadOnly,
-                    onSelected: (_) => setState(() => unreadOnly = true),
-                  ),
-                  const SizedBox(width: 12),
-                  DropdownButton<int?>(
-                    value: statusFilter,
-                    hint: const Text('Any status'),
-                    items: const [
-                      DropdownMenuItem<int?>(value: null, child: Text('Any status')),
-                      DropdownMenuItem<int?>(value: 1, child: Text('Open')),
-                      DropdownMenuItem<int?>(value: 3, child: Text('Pending')),
-                      DropdownMenuItem<int?>(value: 2, child: Text('Resolved')),
-                    ],
-                    onChanged: (value) => setState(() { statusFilter = value; page = 1; }),
-                  ),
-                  const SizedBox(width: 12),
-                  DropdownButton<int?>(
-                    value: modeFilter,
-                    hint: const Text('Any mode'),
-                    items: const [
-                      DropdownMenuItem<int?>(value: null, child: Text('Any mode')),
-                      DropdownMenuItem<int?>(value: 1, child: Text('Bot')),
-                      DropdownMenuItem<int?>(value: 2, child: Text('Human')),
-                    ],
-                    onChanged: (value) => setState(() { modeFilter = value; page = 1; }),
-                  ),
-                ],
-              )),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+              child: Row(children: [
+                FilterChip(
+                  label: const Text('All'),
+                  selected: !unreadOnly && selectedTagId == null,
+                  onSelected: (_) => setState(() {
+                    unreadOnly = false;
+                    selectedTagId = null;
+                    page = 1;
+                  }),
+                ),
+                const SizedBox(width: 8),
+                FilterChip(
+                  label: const Text('Unread'),
+                  selected: unreadOnly,
+                  onSelected: (value) => setState(() => unreadOnly = value),
+                ),
+                const SizedBox(width: 8),
+                const Tooltip(
+                  message: 'Group filtering is not supported by the current inbox API',
+                  child: ActionChip(label: Text('Groups'), onPressed: null),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Consumer(builder: (context, ref, _) {
+                    final tags = ref.watch(inboxTagsProvider);
+                    return tags.when(
+                      loading: () => const Text('Labels…'),
+                      error: (_, __) => TextButton(
+                        onPressed: () => ref.invalidate(inboxTagsProvider),
+                        child: const Text('Retry labels'),
+                      ),
+                      data: (items) => PopupMenuButton<int?>(
+                        tooltip: 'Filter labels on this page',
+                        enabled: items.isNotEmpty,
+                        onSelected: (id) => setState(() => selectedTagId = id),
+                        itemBuilder: (_) => [
+                          const PopupMenuItem<int?>(value: null, child: Text('All labels')),
+                          ...items.map((tag) => PopupMenuItem<int?>(
+                            value: tag.id,
+                            child: Text(tag.name, overflow: TextOverflow.ellipsis),
+                          )),
+                        ],
+                        child: Chip(label: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(child: Text(
+                              selectedTagId == null
+                                  ? 'Labels'
+                                  : items.where((tag) => tag.id == selectedTagId)
+                                      .map((tag) => tag.name).firstOrNull ?? 'Labels',
+                              overflow: TextOverflow.ellipsis,
+                            )),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.expand_more, size: 16),
+                          ],
+                        )),
+                      ),
+                    );
+                  }),
+                ),
+              ]),
             ),
             const Divider(height: 1),
             Expanded(
@@ -131,6 +246,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                 data: (data) {
                   final matches = data.items.where((item) {
                     if (unreadOnly && item.unreadCount == 0) return false;
+                    if (selectedTagId != null && !item.tags.any((tag) => tag.id == selectedTagId)) return false;
                     return true;
                   }).toList();
                   return RefreshIndicator(
@@ -153,7 +269,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                                 const SizedBox(height: 12),
                                 const Text('No matching conversations'),
                                 const SizedBox(height: 4),
-                                Text('Unread applies to this page; search, status and mode apply to all pages.',
+                                Text('Unread and label filters apply to this page; search, status and mode apply across pages.',
                                     textAlign: TextAlign.center,
                                     style: theme.textTheme.bodySmall),
                               ],
