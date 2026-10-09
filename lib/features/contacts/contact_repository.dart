@@ -34,11 +34,10 @@ class ContactRepository {
     return result.data!;
   }
 
-  Future<ContactPage> list({int page = 1, String search = '', int? groupId}) async {
+  Future<ContactPage> list({int page = 1, String search = ''}) async {
     final query = Uri(queryParameters: {
       'pageNumber': '$page',
       'pageSize': '20',
-      if (groupId != null) 'groupId': '$groupId',
       if (search.trim().isNotEmpty) 'search': search.trim(),
     }).query;
     final result = await api.get<ContactPage>(
@@ -66,10 +65,10 @@ class ContactRepository {
 }
 
 final contactListProvider =
-    FutureProvider.autoDispose.family<ContactPage, ({int page, String search, int? groupId})>(
+    FutureProvider.autoDispose.family<ContactPage, ({int page, String search})>(
   (ref, filter) => ref
       .read(contactRepositoryProvider)
-      .list(page: filter.page, search: filter.search, groupId: filter.groupId),
+      .list(page: filter.page, search: filter.search),
 );
 final contactDetailProvider =
     FutureProvider.autoDispose.family<ContactDetail, int>(
