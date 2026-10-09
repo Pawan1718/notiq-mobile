@@ -628,6 +628,11 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
               ],
             ],
           )),
+          if (step == 1 && error != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Text(error!, style: TextStyle(color: theme.colorScheme.error)),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
             child: Row(children: [
@@ -637,7 +642,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
               ),
               const Spacer(),
               FilledButton(
-                onPressed: saving ? null : () {
+                onPressed: saving || uploading ? null : () {
                   if (step == 0 &&
                       (name.text.trim().isEmpty ||
                       (audience == 3 && optional(group) == null))) {
