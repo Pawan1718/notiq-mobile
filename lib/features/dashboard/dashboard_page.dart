@@ -16,7 +16,7 @@ class DashboardPage extends ConsumerWidget {
     final metrics = ref.watch(dashboardMetricsProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const SizedBox.shrink(),
+        title: const Text('Home'),
         actions: [
           IconButton(
             tooltip: 'Refresh dashboard',
