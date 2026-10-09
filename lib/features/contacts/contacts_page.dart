@@ -277,65 +277,136 @@ class _ContactEditorPageState extends ConsumerState<ContactEditorPage> {
       selectedTags = [...contact.tagIds];
       loaded = true;
     }
+    final theme = Theme.of(context);
     return Scaffold(
-        appBar: AppBar(
-            title: Text(widget.id == null ? 'Add contact' : 'Edit contact')),
-        body: detail?.isLoading == true
-            ? const Center(child: CircularProgressIndicator())
-            : detail?.hasError == true
-                ? const Center(child: Text('Unable to load contact'))
-                : ListView(padding: const EdgeInsets.all(16), children: [
-                    Text('Contact information', style: Theme.of(context).textTheme.titleLarge),
-                    const SizedBox(height: 12),
-                    TextField(
-                        controller: name,
-                        decoration: const InputDecoration(labelText: 'Name')),
-                    TextField(
-                        controller: mobile,
-                        keyboardType: TextInputType.phone,
-                        decoration:
-                            const InputDecoration(labelText: 'Mobile number')),
-                    TextField(
-                        controller: whatsapp,
-                        keyboardType: TextInputType.phone,
-                        decoration: const InputDecoration(
-                            labelText: 'WhatsApp number')),
-                    TextField(
-                        controller: email,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(labelText: 'Email')),
-                    const SizedBox(height: 24),
-                    Text('Groups and tags', style: Theme.of(context).textTheme.titleLarge),
-                    _MultiContactLookup(title: 'Groups', selected: selectedGroups,
-                      provider: contactGroupsProvider,
-                      onChange: (values) => setState(() => selectedGroups = values)),
-                    _MultiContactLookup(title: 'Tags', selected: selectedTags,
-                      provider: contactTagsProvider,
-                      onChange: (values) => setState(() => selectedTags = values)),
-                    const SizedBox(height: 24),
-                    Text('Communication consent', style: Theme.of(context).textTheme.titleLarge),
-                    const SizedBox(height: 6),
-                    Text('Enable a channel only when the contact has given consent.',
-                      style: Theme.of(context).textTheme.bodySmall),
-                    const SizedBox(height: 12),
-                    SwitchListTile(
-                        title: const Text('WhatsApp consent'),
-                        value: whatsApp,
-                        onChanged: (v) => setState(() => whatsApp = v)),
-                    SwitchListTile(
-                        title: const Text('SMS consent'),
-                        value: sms,
-                        onChanged: (v) => setState(() => sms = v)),
-                    SwitchListTile(
-                        title: const Text('Email consent'),
-                        value: emailAllowed,
-                        onChanged: (v) => setState(() => emailAllowed = v)),
-                    if (error != null)
-                      Text(error!,
-                          style: TextStyle(
-                              color: Theme.of(context).colorScheme.error)),
-                    FilledButton(
-                        onPressed: saving
+      appBar: AppBar(
+        title: Text(widget.id == null ? 'Add contact' : 'Edit contact'),
+      ),
+      body: detail?.isLoading == true
+          ? const Center(child: CircularProgressIndicator())
+          : detail?.hasError == true
+              ? const Center(child: Text('Unable to load contact'))
+              : SafeArea(
+                  top: false,
+                  child: Column(children: [
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+                        children: [
+                          Text('Basic details', style: theme.textTheme.titleMedium),
+                          const SizedBox(height: 14),
+                          TextField(
+                            controller: name,
+                            textCapitalization: TextCapitalization.words,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Full name',
+                              prefixIcon: Icon(Icons.person_outline_rounded),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: mobile,
+                            keyboardType: TextInputType.phone,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Mobile number',
+                              prefixIcon: Icon(Icons.phone_outlined),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: whatsapp,
+                            keyboardType: TextInputType.phone,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'WhatsApp number',
+                              prefixIcon: Icon(Icons.chat_bubble_outline_rounded),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: email,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: const InputDecoration(
+                              labelText: 'Email (optional)',
+                              prefixIcon: Icon(Icons.mail_outline_rounded),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Text('Organize', style: theme.textTheme.titleMedium),
+                          const SizedBox(height: 10),
+                          _MultiContactLookup(
+                            title: 'Groups',
+                            selected: selectedGroups,
+                            provider: contactGroupsProvider,
+                            onChange: (values) => setState(() => selectedGroups = values),
+                          ),
+                          const SizedBox(height: 10),
+                          _MultiContactLookup(
+                            title: 'Labels',
+                            selected: selectedTags,
+                            provider: contactTagsProvider,
+                            onChange: (values) => setState(() => selectedTags = values),
+                          ),
+                          const SizedBox(height: 24),
+                          Text('Communication consent', style: theme.textTheme.titleMedium),
+                          const SizedBox(height: 5),
+                          Text(
+                            'Enable only for channels with verified permission.',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: 10),
+                          Card(
+                            margin: EdgeInsets.zero,
+                            child: Column(children: [
+                              SwitchListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                                title: const Text('WhatsApp'),
+                                secondary: const Icon(Icons.chat_outlined),
+                                value: whatsApp,
+                                onChanged: saving ? null : (v) => setState(() => whatsApp = v),
+                              ),
+                              const Divider(height: 1, indent: 56),
+                              SwitchListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                                title: const Text('SMS'),
+                                secondary: const Icon(Icons.sms_outlined),
+                                value: sms,
+                                onChanged: saving ? null : (v) => setState(() => sms = v),
+                              ),
+                              const Divider(height: 1, indent: 56),
+                              SwitchListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                                title: const Text('Email'),
+                                secondary: const Icon(Icons.email_outlined),
+                                value: emailAllowed,
+                                onChanged: saving ? null : (v) => setState(() => emailAllowed = v),
+                              ),
+                            ]),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface,
+                        border: Border(top: BorderSide(color: theme.dividerColor)),
+                      ),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        if (error != null) ...[
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(error!, style: TextStyle(
+                              color: theme.colorScheme.error)),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: saving
                             ? null
                             : () async {
                                 if (name.text.trim().isEmpty ||
@@ -374,8 +445,14 @@ class _ContactEditorPageState extends ConsumerState<ContactEditorPage> {
                                   }
                                 }
                               },
-                        child: Text(saving ? 'Saving…' : 'Save contact')),
-                  ]));
+                        
+                            child: Text(saving ? 'Saving…' : 'Save contact'),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ]),
+                );
   }
 }
 
@@ -398,8 +475,16 @@ class _MultiContactLookup extends ConsumerWidget {
         onPressed: () => ref.invalidate(provider),
         child: Text('Retry loading $title')),
       data: (items) => items.isEmpty
-        ? Padding(padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text('No $title available'))
+        ? Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(children: [
+              Icon(title == 'Groups' ? Icons.groups_outlined : Icons.label_outline,
+                size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              const SizedBox(width: 10),
+              Expanded(child: Text('No ${title.toLowerCase()} yet',
+                style: Theme.of(context).textTheme.bodySmall)),
+            ]),
+          )
         : Wrap(spacing: 8, runSpacing: 2,
             children: items.map((item) {
               final id = (item['id'] as num).toInt();
