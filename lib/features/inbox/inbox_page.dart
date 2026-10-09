@@ -77,7 +77,9 @@ class _InboxPageState extends ConsumerState<InboxPage> {
         status: expectedStatus, mode: expectedMode,
       );
       if (!mounted || generation != listGeneration || search != expectedSearch ||
-          statusFilter != expectedStatus || modeFilter != expectedMode) return;
+          statusFilter != expectedStatus || modeFilter != expectedMode) {
+        return;
+      }
       setState(() {
         page = nextPage;
         final existingIds = {
