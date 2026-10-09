@@ -430,7 +430,9 @@ class _ContactEditorPageState extends ConsumerState<ContactEditorPage> {
                                     'isSmsAllowed': sms,
                                     'isWhatsAppAllowed': whatsApp,
                                     'isEmailAllowed': emailAllowed,
-                                    'isActive': true,
+                                    'isActive': widget.id == null
+                                        ? true
+                                        : detail?.valueOrNull?.active ?? true,
                                     'tagIds': selectedTags,
                                     'groupIds': selectedGroups,
                                   }, id: widget.id);
