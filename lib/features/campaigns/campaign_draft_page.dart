@@ -25,6 +25,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
   late final provider = TextEditingController();
   late final template = TextEditingController(
       text: widget.existing?.raw['templateId']?.toString() ?? '');
+  bool useTemplate = false;
   int channel = 4;
   int audience = 3;
   bool saving = false;
@@ -34,6 +35,9 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
   @override
   void initState() {
     super.initState();
+    useTemplate = template.text.trim().isNotEmpty;
+    body.addListener(_refreshComposer);
+    subject.addListener(_refreshComposer);
     if (widget.existing != null) {
       channel = number(widget.existing!.raw['channel']);
       audience = number(widget.existing!.raw['audienceType']);
@@ -42,8 +46,14 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
     }
   }
 
+  void _refreshComposer() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    body.removeListener(_refreshComposer);
+    subject.removeListener(_refreshComposer);
     name.dispose();
     subject.dispose();
     body.dispose();
@@ -79,7 +89,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
         'audienceType': audience,
         'providerSettingId': optional(provider),
         'contactGroupId': audience == 3 ? optional(group) : null,
-        'templateId': optional(template),
+        'templateId': useTemplate ? optional(template) : null,
         'subject': subject.text.trim(),
         'body': body.text.trim(),
         'recipients': <Object>[],
@@ -257,22 +267,126 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
                 ),
               ],
               if (step == 1) ...[
-                Text('Compose message', style: theme.textTheme.titleLarge),
-                const SizedBox(height: 16),
-                lookupField(
-                  label: 'Template',
-                  controller: template,
-                  source: ref.watch(campaignTemplatesProvider),
-                ),
-                const SizedBox(height: 16),
-                TextField(controller: subject,
-                  decoration: const InputDecoration(labelText: 'Subject')),
-                const SizedBox(height: 16),
-                TextField(controller: body, maxLines: 7,
-                  decoration: const InputDecoration(labelText: 'Message body')),
-                const SizedBox(height: 8),
-                Text('Template/provider rules are validated by the server.',
+                Text('Compose message', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 6),
+                Text('Choose a saved template or write your own message.',
                   style: theme.textTheme.bodySmall),
+                const SizedBox(height: 18),
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: false,
+                      icon: Icon(Icons.edit_outlined),
+                      label: Text('Write manually')),
+                    ButtonSegment(value: true,
+                      icon: Icon(Icons.description_outlined),
+                      label: Text('Use template')),
+                  ],
+                  selected: {useTemplate},
+                  onSelectionChanged: saving ? null : (selection) {
+                    setState(() {
+                      useTemplate = selection.first;
+                      if (!useTemplate) template.clear();
+                      error = null;
+                    });
+                  },
+                ),
+                const SizedBox(height: 20),
+                if (useTemplate) ...[
+                  lookupField(
+                    label: 'Template',
+                    controller: template,
+                    source: ref.watch(campaignTemplatesProvider),
+                  ),
+                  const SizedBox(height: 10),
+                  Text('Select a template to use its saved content. You can also '
+                    'switch to manual writing.',
+                    style: theme.textTheme.bodySmall),
+                  const SizedBox(height: 18),
+                ] else ...[
+                  Row(children: [
+                    Icon(Icons.edit_note_rounded,
+                      color: theme.colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text('Custom message',
+                      style: theme.textTheme.titleSmall)),
+                  ]),
+                  const SizedBox(height: 12),
+                ],
+                if (channel == 2) ...[
+                  TextField(
+                    controller: subject,
+                    maxLength: 150,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'Email subject',
+                      hintText: 'Add a clear subject line',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                TextField(
+                  controller: body,
+                  minLines: 5,
+                  maxLines: 9,
+                  keyboardType: TextInputType.multiline,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    labelText: 'Message',
+                    alignLabelWithHint: true,
+                    hintText: channel == 2
+                        ? 'Write your email content…'
+                        : channel == 3
+                            ? 'Write your SMS…'
+                            : 'Write your WhatsApp message…',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(channel == 3
+                        ? 'SMS · Character count only'
+                        : channel == 2 ? 'Email message' : 'WhatsApp message',
+                        style: theme.textTheme.bodySmall),
+                    Text('${body.text.characters.length} characters',
+                      style: theme.textTheme.bodySmall),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                if (body.text.trim().isNotEmpty) ...[
+                  Text('Preview', style: theme.textTheme.titleSmall),
+                  const SizedBox(height: 10),
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (channel == 2 &&
+                              subject.text.trim().isNotEmpty) ...[
+                            Text(subject.text.trim(),
+                              style: theme.textTheme.titleSmall),
+                            const SizedBox(height: 10),
+                          ],
+                          Text(body.text.trim()),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                Row(crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline_rounded, size: 18,
+                      color: theme.colorScheme.onSurfaceVariant),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(
+                      'Preview shows typed text only. Provider, template and '
+                      'consent rules are validated by the server.',
+                      style: theme.textTheme.bodySmall,
+                    )),
+                  ],
+                ),
               ],
               if (step == 2) ...[
                 Text('Schedule', style: theme.textTheme.titleMedium),
@@ -333,8 +447,8 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
                       _summaryRow('Provider', provider.text.isEmpty
                           ? 'Default' : 'Selected provider'),
                       const Divider(height: 1),
-                      _summaryRow('Template', template.text.isEmpty
-                          ? 'None' : 'Selected template'),
+                      _summaryRow('Message', useTemplate && template.text.isNotEmpty
+                          ? 'Template' : 'Custom message'),
                     ]),
                   ),
                 ),
