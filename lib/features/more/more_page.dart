@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_controller.dart';
 import 'readonly_catalog_pages.dart';
+import 'workspace_read_pages.dart';
 
 /// Workspace settings directory. Unsupported mobile destinations are disabled.
 class MorePage extends ConsumerWidget {
@@ -56,17 +57,17 @@ class MorePage extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 22),
-            const _MenuSection(
+            _MenuSection(
               title: 'Workspace',
               items: [
                 _MenuItem('Team members', Icons.group_outlined,
-                  'Workspace access'),
+                  'Workspace access', page: TeamReadPage()),
                 _MenuItem('Roles & permissions', Icons.admin_panel_settings_outlined,
-                  'Access control'),
+                  'Access control', page: RolesReadPage()),
                 _MenuItem('Plan & billing', Icons.credit_card_outlined,
-                  'Subscription details'),
+                  'Subscription details', page: SubscriptionReadPage()),
                 _MenuItem('Usage & costs', Icons.bar_chart_outlined,
-                  'Communication usage'),
+                  'Communication usage', page: UsageReadPage()),
               ],
             ),
             const SizedBox(height: 22),
