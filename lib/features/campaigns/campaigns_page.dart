@@ -14,6 +14,8 @@ class CampaignsPage extends ConsumerStatefulWidget {
 class _CampaignsPageState extends ConsumerState<CampaignsPage> {
   final search = TextEditingController();
   String query = '';
+  bool searchOpen = false;
+  String statusView = 'All';
   int page = 1;
 
   @override
@@ -49,63 +51,87 @@ class _CampaignsPageState extends ConsumerState<CampaignsPage> {
       appBar: AppBar(
         title: const Text('Campaigns'),
         actions: [
-          IconButton(
-            tooltip: 'Refresh campaigns',
-            onPressed: refresh,
-            icon: const Icon(Icons.refresh_rounded),
+          PopupMenuButton<String>(
+            tooltip: 'Campaign actions',
+            icon: const Icon(Icons.more_vert_rounded),
+            onSelected: (action) {
+              if (action == 'refresh') refresh();
+              if (action == 'create') createDraft();
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'create', child: Text('Create campaign')),
+              PopupMenuItem(value: 'refresh', child: Text('Refresh')),
+            ],
           ),
         ],
+      ),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!searchOpen) FloatingActionButton.small(
+              heroTag: 'campaign-search',
+              tooltip: 'Search campaigns',
+              onPressed: () => setState(() => searchOpen = true),
+              child: const Icon(Icons.search_rounded),
+            ),
+            const SizedBox(height: 10),
+            FloatingActionButton(
+              heroTag: 'campaign-create',
+              tooltip: 'Create campaign',
+              onPressed: createDraft,
+              child: const Icon(Icons.add_rounded),
+            ),
+          ],
+        ),
       ),
       body: SafeArea(
         top: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-              child: Row(
-                children: [
-                  Expanded(child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Your campaigns', style: theme.textTheme.headlineSmall),
-                      const SizedBox(height: 4),
-                      Text('Create, schedule and monitor messages',
-                          style: theme.textTheme.bodySmall),
-                    ],
-                  )),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: createDraft,
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Create'),
+            if (searchOpen)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: TextField(
+                  controller: search,
+                  autofocus: true,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (value) => setState(() {
+                    query = value.trim();
+                    page = 1;
+                  }),
+                  decoration: InputDecoration(
+                    hintText: 'Search campaigns',
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: IconButton(
+                      tooltip: 'Close search',
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => setState(() {
+                        search.clear();
+                        query = '';
+                        page = 1;
+                        searchOpen = false;
+                      }),
+                    ),
                   ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-              child: TextField(
-                controller: search,
-                textInputAction: TextInputAction.search,
-                onSubmitted: (value) => setState(() {
-                  query = value.trim();
-                  page = 1;
-                }),
-                decoration: InputDecoration(
-                  hintText: 'Search campaigns',
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  suffixIcon: search.text.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: 'Clear search',
-                          onPressed: () {
-                            search.clear();
-                            setState(() { query = ''; page = 1; });
-                          },
-                          icon: const Icon(Icons.close_rounded),
-                        ),
                 ),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(children: [
+                  for (final label in const ['All', 'Drafts', 'Scheduled', 'Completed']) ...[
+                    ChoiceChip(
+                      label: Text(label),
+                      selected: statusView == label,
+                      onSelected: (_) => setState(() => statusView = label),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                ]),
               ),
             ),
             Expanded(
@@ -122,7 +148,17 @@ class _CampaignsPageState extends ConsumerState<CampaignsPage> {
                     ),
                   ]),
                 ),
-                data: (data) => RefreshIndicator(
+                data: (data) {
+                  final shown = data.items.where((item) {
+                    final status = item.status.toLowerCase();
+                    return switch (statusView) {
+                      'Drafts' => status.contains('draft'),
+                      'Scheduled' => status.contains('schedul'),
+                      'Completed' => status.contains('complete') || status.contains('sent') || status.contains('deliver'),
+                      _ => true,
+                    };
+                  }).toList();
+                  return RefreshIndicator(
                   onRefresh: () async {
                     refresh();
                     await ref.read(campaignsProvider((page: page, search: query)).future);
@@ -131,23 +167,29 @@ class _CampaignsPageState extends ConsumerState<CampaignsPage> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(16, 2, 16, 22),
                     children: [
-                      if (data.items.isEmpty)
+                      if (statusView != 'All')
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text('Filter applies to this page only',
+                            style: theme.textTheme.bodySmall),
+                        ),
+                      if (shown.isEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 72),
                           child: Column(children: [
                             Icon(Icons.campaign_outlined, size: 48,
                                 color: theme.colorScheme.onSurfaceVariant),
                             const SizedBox(height: 12),
-                            Text(query.isEmpty ? 'No campaigns yet' : 'No matching campaigns',
+                            Text(query.isEmpty && statusView == 'All' ? 'No campaigns yet' : 'No matching campaigns',
                                 style: theme.textTheme.titleMedium),
                             const SizedBox(height: 6),
-                            Text(query.isEmpty
+                            Text(query.isEmpty && statusView == 'All'
                                 ? 'Create a draft to get started.'
-                                : 'Try a different search term.',
+                                : 'Try another filter or search.',
                                 style: theme.textTheme.bodySmall),
                           ]),
                         ),
-                      for (final item in data.items) ...[
+                      for (final item in shown) ...[
                         _CampaignCard(item: item, onTap: () => openCampaign(item)),
                         const SizedBox(height: 10),
                       ],
@@ -159,7 +201,8 @@ class _CampaignsPageState extends ConsumerState<CampaignsPage> {
                         ),
                     ],
                   ),
-                ),
+                );
+                },
               ),
             ),
           ],

@@ -162,7 +162,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final steps = ['Audience', 'Channel', 'Content', 'Schedule', 'Review'];
+    final steps = ['Setup', 'Message', 'Review & schedule'];
     return Scaffold(
       appBar: AppBar(title: Text(widget.id == null ? 'Create campaign' : 'Edit campaign draft')),
       body: SafeArea(
@@ -170,7 +170,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Step ${step + 1} of 5 · ${steps[step]}',
+              Text('Step ${step + 1} of 3 · ${steps[step]}',
                 style: theme.textTheme.titleMedium),
               const SizedBox(height: 8),
               LinearProgressIndicator(value: (step + 1) / steps.length,
@@ -182,7 +182,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
             children: [
               if (step == 0) ...[
                 Text('Who will receive this campaign?',
-                  style: theme.textTheme.titleLarge),
+                  style: theme.textTheme.titleMedium),
                 const SizedBox(height: 16),
                 TextField(controller: name,
                   decoration: const InputDecoration(labelText: 'Campaign name')),
@@ -207,7 +207,8 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
                   ),
                 ],
               ],
-              if (step == 1) ...[
+              if (step == 0) ...[
+                const SizedBox(height: 22),
                 Text('Choose channel and sender', style: theme.textTheme.titleLarge),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
@@ -232,7 +233,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
                   source: ref.watch(campaignProvidersProvider),
                 ),
               ],
-              if (step == 2) ...[
+              if (step == 1) ...[
                 Text('Compose message', style: theme.textTheme.titleLarge),
                 const SizedBox(height: 16),
                 lookupField(
@@ -250,7 +251,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
                 Text('Template/provider rules are validated by the server.',
                   style: theme.textTheme.bodySmall),
               ],
-              if (step == 3) ...[
+              if (step == 2) ...[
                 Text('When should it be sent?', style: theme.textTheme.titleLarge),
                 const SizedBox(height: 12),
                 ListTile(
@@ -273,7 +274,8 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
                     child: const Text('Change')),
                 ),
               ],
-              if (step == 4) ...[
+              if (step == 2) ...[
+                const SizedBox(height: 22),
                 Text('Review draft', style: theme.textTheme.titleLarge),
                 const SizedBox(height: 12),
                 ListTile(title: const Text('Name'), subtitle: Text(name.text)),
@@ -313,13 +315,13 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
                     setState(() => error = 'Enter a campaign name and select a contact group.');
                     return;
                   }
-                  if (step < 4) {
+                  if (step < 2) {
                     setState(() { step++; error = null; });
                   } else {
                     save();
                   }
                 },
-                child: Text(saving ? 'Saving...' : step == 4 ? 'Save draft' : 'Continue'),
+                child: Text(saving ? 'Saving...' : step == 2 ? 'Save draft' : 'Continue'),
               ),
             ]),
           ),
