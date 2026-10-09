@@ -189,22 +189,27 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
   Future<void> _chooseAttachment() async {
     if (channel == 3 || uploading) return;
     try {
-      final picked = await FilePicker.pickFiles(
+      final picked = await FilePicker.platform.pickFiles(
         type: FileType.custom,
+        withData: true,
         allowedExtensions: const [
           'jpg', 'jpeg', 'png', 'webp', 'pdf', 'mp4',
           'mp3', 'ogg', 'doc', 'docx',
         ],
       );
-      if (!mounted || picked.isEmpty) return;
-      final file = picked.single;
-      final size = await file.length();
-      if (size == null || size == 0 || size > 25 * 1024 * 1024) {
+      if (!mounted || picked == null || picked.files.isEmpty) return;
+      final file = picked.files.single;
+      final size = file.size;
+      if (size == 0 || size > 25 * 1024 * 1024) {
         setState(() => error = 'File must be between 1 byte and 25 MB.');
         return;
       }
       setState(() { uploading = true; error = null; });
-      final bytes = await file.readAsBytes();
+      final bytes = file.bytes;
+      if (bytes == null) {
+        if (mounted) setState(() => error = 'Cannot read selected file.');
+        return;
+      }
       final uploaded = await ref.read(campaignRepositoryProvider).uploadAttachment(
         channel: channel, name: file.name, bytes: bytes,
       );
