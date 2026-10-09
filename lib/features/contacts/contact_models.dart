@@ -46,11 +46,12 @@ class ContactDetail {
       required this.smsAllowed,
       required this.whatsappAllowed,
       required this.emailAllowed,
+      required this.active,
       required this.groupIds,
       required this.tagIds});
   final int id;
   final String name, mobile, whatsapp, email;
-  final bool smsAllowed, whatsappAllowed, emailAllowed;
+  final bool smsAllowed, whatsappAllowed, emailAllowed, active;
   final List<int> groupIds, tagIds;
   factory ContactDetail.fromJson(Object? raw) {
     final json = Map<String, dynamic>.from(raw as Map);
@@ -65,6 +66,7 @@ class ContactDetail {
         smsAllowed: json['isSmsAllowed'] == true,
         whatsappAllowed: json['isWhatsAppAllowed'] == true,
         emailAllowed: json['isEmailAllowed'] == true,
+        active: json['isActive'] == true,
         groupIds: ids('groupIds'),
         tagIds: ids('tagIds'));
   }
