@@ -484,7 +484,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
           conversation: conversation,
           onUpdated: (updated) {
             if (mounted) setState(() => currentConversation = updated);
-            ref.invalidate(inboxPageProvider(1));
+            ref.invalidate(inboxFilteredProvider);
           },
         ),
       ),
@@ -554,7 +554,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       if (!mounted) return;
       controller.clear();
       ref.invalidate(inboxMessagesProvider(widget.conversationId));
-      ref.invalidate(inboxPageProvider(1));
+      ref.invalidate(inboxFilteredProvider);
     } catch (_) {
       if (mounted) setState(() => error = 'Reply failed. Please retry.');
     } finally {
@@ -567,7 +567,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     setState(() { markingRead = true; error = null; });
     try {
       await ref.read(inboxRepositoryProvider).markRead(widget.conversationId);
-      ref.invalidate(inboxPageProvider(1));
+      ref.invalidate(inboxFilteredProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Marked as read')),
