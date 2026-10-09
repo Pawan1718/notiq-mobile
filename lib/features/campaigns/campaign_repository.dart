@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/api/api_client.dart';
+import '../../core/api/api_response.dart';
 
 const campaignBase = '/api/communication/bulk';
 
@@ -117,6 +119,31 @@ class CampaignRepository {
     await _api.mutate<Object?>(
         '$campaignBase/campaigns/$id/$suffix', method, (v) => v,
         payload: body);
+  }
+
+  Future<Map<String, dynamic>> uploadAttachment({
+    required int channel,
+    required String name,
+    required List<int> bytes,
+  }) async {
+    final file = MultipartFile.fromBytes(bytes, filename: name);
+    final response = await _api.dio.post<Object?>(
+      '/api/communication/uploads/attachment',
+      data: FormData.fromMap({'channel': channel, 'file': file}),
+    );
+    if (response.data is! Map<String, dynamic>) {
+      throw const ApiFailure('Unexpected upload response');
+    }
+    final result = ApiResponse<Map<String, dynamic>>.fromJson(
+      response.data! as Map<String, dynamic>,
+      (value) => Map<String, dynamic>.from(value as Map),
+    );
+    if ((response.statusCode ?? 500) >= 400 || !result.success ||
+        result.data == null) {
+      throw ApiFailure(result.message.isNotEmpty
+          ? result.message : 'Attachment upload failed');
+    }
+    return result.data!;
   }
 
   Future<void> saveDraft(Map<String, dynamic> payload, {int? id}) async {
