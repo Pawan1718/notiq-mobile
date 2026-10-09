@@ -195,21 +195,18 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
           'jpg', 'jpeg', 'png', 'webp', 'pdf', 'mp4',
           'mp3', 'ogg', 'doc', 'docx',
         ],
-        withData: true,
       );
-      if (!mounted || picked == null || picked.files.isEmpty) return;
-      final file = picked.files.single;
-      if (file.size == 0 || file.size > 25 * 1024 * 1024) {
+      if (!mounted || picked.isEmpty) return;
+      final file = picked.single;
+      final size = await file.length();
+      if (size == null || size == 0 || size > 25 * 1024 * 1024) {
         setState(() => error = 'File must be between 1 byte and 25 MB.');
         return;
       }
-      if (file.bytes == null) {
-        setState(() => error = 'Cannot read the selected file.');
-        return;
-      }
       setState(() { uploading = true; error = null; });
+      final bytes = await file.readAsBytes();
       final uploaded = await ref.read(campaignRepositoryProvider).uploadAttachment(
-        channel: channel, name: file.name, bytes: file.bytes!,
+        channel: channel, name: file.name, bytes: bytes,
       );
       if (mounted) setState(() => uploadedAttachment = uploaded);
     } catch (_) {
