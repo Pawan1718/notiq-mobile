@@ -221,6 +221,74 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
     }
   }
 
+  void _chooseTemplate() {
+    final templates = ref.read(campaignTemplatesProvider);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('Choose template',
+              style: Theme.of(sheetContext).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            Flexible(child: templates.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, __) => const Padding(
+                padding: EdgeInsets.all(20),
+                child: Text('Could not load templates. Please retry.')),
+              data: (items) {
+                final available = items.where((item) =>
+                    number(item['channel']) == channel &&
+                    item['isActive'] == true).toList();
+                if (available.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text('No active templates for this channel.'));
+                }
+                return ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: available.length,
+                  itemBuilder: (_, index) {
+                    final item = available[index];
+                    return ListTile(
+                      leading: const Icon(Icons.article_outlined),
+                      title: Text((item['name'] ?? 'Template').toString(),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                      subtitle: Text((item['body'] ?? '').toString(),
+                        maxLines: 2, overflow: TextOverflow.ellipsis),
+                      trailing: number(item['id']) == optional(template)
+                          ? const Icon(Icons.check_circle_outline) : null,
+                      onTap: () {
+                        setState(() {
+                          template.text = number(item['id']).toString();
+                          useTemplate = true;
+                          error = null;
+                        });
+                        Navigator.pop(sheetContext);
+                      },
+                    );
+                  },
+                );
+              },
+            )),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  void _removeTemplate() {
+    setState(() {
+      template.clear();
+      useTemplate = false;
+      error = null;
+    });
+  }
+
   void _showTools() {
     showModalBottomSheet<void>(
       context: context,
@@ -232,6 +300,15 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Text('Message tools', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.article_outlined),
+              title: const Text('Use template'),
+              subtitle: const Text('Choose a saved message'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _chooseTemplate();
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.attach_file_rounded),
               title: const Text('Attach file'),
@@ -297,56 +374,50 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
         ?.where((item) => number(item['id']) == selectedId)
         .firstOrNull;
     return Column(children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Your message', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 12),
-          SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: false, label: Text('Custom'),
-                icon: Icon(Icons.chat_bubble_outline_rounded)),
-              ButtonSegment(value: true, label: Text('Template'),
-                icon: Icon(Icons.article_outlined)),
-            ],
-            selected: {useTemplate},
-            onSelectionChanged: saving ? null : (selection) {
-              setState(() {
-                useTemplate = selection.first;
-                if (!useTemplate) template.clear();
-                error = null;
-              });
-            },
-          ),
-        ]),
-      ),
+      if (useTemplate)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Row(children: [
+            const Icon(Icons.article_outlined, size: 18),
+            const SizedBox(width: 8),
+            Expanded(child: Text(
+              (selectedTemplate?['name'] ?? 'Selected template').toString(),
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelLarge)),
+            TextButton(onPressed: _chooseTemplate, child: const Text('Change')),
+            IconButton(
+              tooltip: 'Remove template',
+              onPressed: _removeTemplate,
+              icon: const Icon(Icons.close_rounded, size: 20)),
+          ]),
+        ),
       if (useTemplate)
         Expanded(child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
           children: [
-            lookupField(label: 'Template', controller: template,
-              source: templates, requiredValue: true),
-            const SizedBox(height: 16),
-            if (selectedTemplate != null) ...[
-              Text('Message preview', style: theme.textTheme.titleSmall),
-              const SizedBox(height: 10),
-              Card(child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (channel == 2 && (selectedTemplate['subject'] ?? '').toString().isNotEmpty) ...[
-                      Text(selectedTemplate['subject'].toString(),
-                        style: theme.textTheme.titleSmall),
-                      const SizedBox(height: 10),
+            if (selectedTemplate != null)
+              Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (channel == 2 &&
+                          (selectedTemplate['subject'] ?? '').toString().isNotEmpty) ...[
+                        Text(selectedTemplate['subject'].toString(),
+                          style: theme.textTheme.titleSmall),
+                        const SizedBox(height: 10),
+                      ],
+                      SelectableText((selectedTemplate['body'] ?? '').toString()),
                     ],
-                    SelectableText((selectedTemplate['body'] ?? '').toString()),
-                  ],
+                  ),
                 ),
-              )),
-            ] else
-              Text('Select an active template to preview it.',
+              )
+            else
+              Text('Template unavailable. Choose another template.',
                 style: theme.textTheme.bodySmall),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text('Template content is managed on Notiq Web.',
               style: theme.textTheme.bodySmall),
           ],
@@ -438,12 +509,7 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
                 isDense: true,
               ),
             )),
-            const SizedBox(width: 8),
-            IconButton(
-              tooltip: 'Message preview updates automatically',
-              onPressed: null,
-              icon: const Icon(Icons.visibility_outlined),
-            ),
+
           ]),
         ),
         Padding(
@@ -638,12 +704,16 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
             child: Row(children: [
-              if (step > 0) OutlinedButton(
-                onPressed: saving ? null : () => setState(() { step--; error = null; }),
-                child: const Text('Back'),
-              ),
+              if (step > 0)
+                IconButton.outlined(
+                  tooltip: 'Previous step',
+                  onPressed: saving || uploading ? null : () =>
+                      setState(() { step--; error = null; }),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                ),
               const Spacer(),
-              FilledButton(
+              if (step < 2) IconButton.filled(
+                tooltip: 'Next step',
                 onPressed: saving || uploading ? null : () {
                   if (step == 0 &&
                       (name.text.trim().isEmpty ||
@@ -665,7 +735,11 @@ class _CampaignDraftPageState extends ConsumerState<CampaignDraftPage> {
                     save();
                   }
                 },
-                child: Text(saving ? 'Saving...' : step == 2 ? 'Save draft' : 'Continue'),
+                icon: const Icon(Icons.arrow_forward_rounded),
+              )
+              else FilledButton(
+                onPressed: saving || uploading ? null : save,
+                child: Text(saving ? 'Saving...' : 'Save draft'),
               ),
             ]),
           ),
