@@ -20,7 +20,13 @@ class ContactOrganizePage extends ConsumerWidget {
         data: (values) => ListView(children: [
           for (final item in values)
             ListTile(
-              leading: Icon(isGroup ? Icons.group_outlined : Icons.sell_outlined),
+              leading: isGroup
+                  ? const Icon(Icons.group_outlined)
+                  : Icon(Icons.label_rounded, color: const [
+                      Color(0xFF7C6CFF), Color(0xFF16A695),
+                      Color(0xFFE1A33F), Color(0xFFDB718C),
+                      Color(0xFF5B9AE5), Color(0xFF9C77C9),
+                    ][((item['id'] as num?)?.toInt() ?? 0).abs() % 6]),
               title: Text((item['name'] ?? '').toString()),
               subtitle: isGroup ? Text('${item['memberCount'] ?? 0} members') : null,
             ),
