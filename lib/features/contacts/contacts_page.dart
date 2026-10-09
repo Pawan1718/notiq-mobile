@@ -13,7 +13,6 @@ class ContactsPage extends ConsumerStatefulWidget {
 class _ContactsPageState extends ConsumerState<ContactsPage> {
   final search = TextEditingController();
   String filter = '';
-  int? selectedGroupId;
   bool searchOpen = false;
   int page = 1;
   final scrollController = ScrollController();
@@ -43,12 +42,11 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
   Future<void> _loadMore() async {
     if (!mounted || loadingMore) return;
     final first = ref.read(
-      contactListProvider((page: 1, search: filter, groupId: selectedGroupId)),
+      contactListProvider((page: 1, search: filter)),
     ).valueOrNull;
     if (first == null || page >= first.totalPages) return;
     final nextPage = page + 1;
     final searchAtStart = filter;
-    final groupAtStart = selectedGroupId;
     final requestGeneration = generation;
     setState(() {
       loadingMore = true;
@@ -56,10 +54,10 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     });
     try {
       final next = await ref.read(contactRepositoryProvider).list(
-        page: nextPage, search: searchAtStart, groupId: groupAtStart,
+        page: nextPage, search: searchAtStart,
       );
       if (!mounted || generation != requestGeneration ||
-          filter != searchAtStart || selectedGroupId != groupAtStart) {
+          filter != searchAtStart) {
         return;
       }
       setState(() {
@@ -74,7 +72,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       });
     } catch (_) {
       if (mounted && generation == requestGeneration &&
-          filter == searchAtStart && selectedGroupId == groupAtStart) {
+          filter == searchAtStart) {
         setState(() => loadMoreFailed = true);
       }
     } finally {
@@ -91,7 +89,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
 
   void reload() {
     setState(resetList);
-    ref.invalidate(contactListProvider((page: 1, search: filter, groupId: selectedGroupId)));
+    ref.invalidate(contactListProvider((page: 1, search: filter)));
   }
   Future<void> openCreate() async {
     await Navigator.push<void>(
@@ -113,43 +111,9 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     }
   }
 
-  Future<void> _chooseGroup() async {
-    final groups = await ref.read(contactGroupsProvider.future);
-    if (!mounted) return;
-    final selected = await showModalBottomSheet<int>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        top: false,
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            const ListTile(title: Text('Filter by group')),
-            ListTile(
-              title: const Text('All contacts'),
-              trailing: selectedGroupId == null ? const Icon(Icons.check) : null,
-              onTap: () => Navigator.pop(sheetContext, -1)),
-            for (final group in groups)
-              ListTile(
-                title: Text((group['name'] ?? 'Group').toString()),
-                trailing: selectedGroupId == (group['id'] as num?)?.toInt()
-                    ? const Icon(Icons.check) : null,
-                onTap: () => Navigator.pop(
-                  sheetContext, (group['id'] as num).toInt())),
-          ],
-        ),
-      ),
-    );
-    if (!mounted || selected == null) return;
-    setState(() {
-      selectedGroupId = selected == -1 ? null : selected;
-      resetList();
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    final contacts = ref.watch(contactListProvider((page: 1, search: filter, groupId: selectedGroupId)));
+    final contacts = ref.watch(contactListProvider((page: 1, search: filter)));
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     return Scaffold(
@@ -237,28 +201,18 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
             child: Row(children: [
-              ActionChip(
-                label: const Text('All'),
-                onPressed: () => setState(() {
-                  selectedGroupId = null;
-                  resetList();
-                }),
-              ),
+              const Chip(label: Text('All contacts')),
               const SizedBox(width: 8),
               ActionChip(
                 avatar: const Icon(Icons.groups_outlined, size: 16),
-                label: Text(selectedGroupId == null ? 'Groups' : 'Group selected'),
-                onPressed: _chooseGroup,
+                label: const Text('Groups'),
+                onPressed: () => openOrganizer('groups'),
               ),
               const SizedBox(width: 8),
               ActionChip(
                 avatar: const Icon(Icons.label_outline_rounded, size: 16),
                 label: const Text('Labels'),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text(
-                      'Label filtering needs backend support. Manage labels from the menu.')));
-                },
+                onPressed: () => openOrganizer('tags'),
               ),
             ]),
           ),
@@ -273,7 +227,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                 onRefresh: () async {
                   reload();
                   await ref.read(
-                    contactListProvider((page: 1, search: filter, groupId: selectedGroupId)).future,
+                    contactListProvider((page: 1, search: filter)).future,
                   );
                 },
                 child: ListView(
@@ -465,21 +419,6 @@ class _ContactEditorPageState extends ConsumerState<ContactEditorPage> {
                           const SizedBox(height: 24),
                           Text('Organize', style: theme.textTheme.titleMedium),
                           const SizedBox(height: 10),
-                          Row(children: [
-                            Expanded(child: Text('Groups',
-                              style: theme.textTheme.titleSmall)),
-                            TextButton(
-                              onPressed: () async {
-                                await Navigator.push<void>(
-                                  context,
-                                  MaterialPageRoute(builder: (_) =>
-                                    const ContactOrganizePage(type: 'groups')),
-                                );
-                                ref.invalidate(contactGroupsProvider);
-                              },
-                              child: const Text('Manage'),
-                            ),
-                          ]),
                           _MultiContactLookup(
                             title: 'Groups',
                             selected: selectedGroups,
@@ -487,21 +426,6 @@ class _ContactEditorPageState extends ConsumerState<ContactEditorPage> {
                             onChange: (values) => setState(() => selectedGroups = values),
                           ),
                           const SizedBox(height: 10),
-                          Row(children: [
-                            Expanded(child: Text('Labels',
-                              style: theme.textTheme.titleSmall)),
-                            TextButton(
-                              onPressed: () async {
-                                await Navigator.push<void>(
-                                  context,
-                                  MaterialPageRoute(builder: (_) =>
-                                    const ContactOrganizePage(type: 'tags')),
-                                );
-                                ref.invalidate(contactTagsProvider);
-                              },
-                              child: const Text('Manage'),
-                            ),
-                          ]),
                           _MultiContactLookup(
                             title: 'Labels',
                             selected: selectedTags,
@@ -650,19 +574,9 @@ class _MultiContactLookup extends ConsumerWidget {
         : Wrap(spacing: 8, runSpacing: 2,
             children: items.map((item) {
               final id = (item['id'] as num).toInt();
-              final isLabel = title == 'Labels';
-              const palette = [
-                Color(0xFF7C6CFF), Color(0xFF16A695),
-                Color(0xFFE1A33F), Color(0xFFDB718C),
-                Color(0xFF5B9AE5), Color(0xFF9C77C9),
-              ];
-              final color = palette[id.abs() % palette.length];
               return FilterChip(
-                avatar: isLabel ? Icon(Icons.circle, size: 11, color: color) : null,
                 label: Text((item['name'] ?? '').toString()),
                 selected: selected.contains(id),
-                selectedColor: isLabel ? color.withValues(alpha: 0.20) : null,
-
                 onSelected: (checked) {
                   final next = {...selected};
                   if (checked) { next.add(id); } else { next.remove(id); }
