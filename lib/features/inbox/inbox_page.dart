@@ -18,6 +18,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
   final List<InboxConversation> extraConversations = [];
   bool loadingMore = false;
   bool moreFailed = false;
+  int listGeneration = 0;
   bool unreadOnly = false;
   String search = '';
   bool searchOpen = false;
@@ -38,6 +39,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
     });
     realtimeSubscription = ref.listenManual(inboxRealtimeProvider, (_, next) {
       if (next.valueOrNull != null && mounted) {
+        setState(resetInbox);
         ref.invalidate(inboxFilteredProvider((page: 1, search: search, status: statusFilter, mode: modeFilter)));
       }
     });
@@ -52,6 +54,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
   }
 
   void resetInbox() {
+    listGeneration++;
     page = 1;
     extraConversations.clear();
     moreFailed = false;
@@ -62,6 +65,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
     final filter = (page: 1, search: search, status: statusFilter, mode: modeFilter);
     final current = ref.read(inboxFilteredProvider(filter)).valueOrNull;
     if (current == null || page >= current.totalPages) return;
+    final generation = listGeneration;
     final nextPage = page + 1;
     final expectedSearch = search;
     final expectedStatus = statusFilter;
@@ -72,7 +76,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
         page: nextPage, search: expectedSearch,
         status: expectedStatus, mode: expectedMode,
       );
-      if (!mounted || search != expectedSearch ||
+      if (!mounted || generation != listGeneration || search != expectedSearch ||
           statusFilter != expectedStatus || modeFilter != expectedMode) return;
       setState(() {
         page = nextPage;
@@ -85,7 +89,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
         );
       });
     } catch (_) {
-      if (mounted && search == expectedSearch &&
+      if (mounted && generation == listGeneration && search == expectedSearch &&
           statusFilter == expectedStatus && modeFilter == expectedMode) {
         setState(() => moreFailed = true);
       }
@@ -312,10 +316,10 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                     child: ListView.separated(
                       physics: const AlwaysScrollableScrollPhysics(),
                       controller: scrollController,
-                      itemCount: matches.isEmpty ? 1 : matches.length + (page < data.totalPages ? 1 : 0),
+                      itemCount: matches.isEmpty && page >= data.totalPages ? 1 : matches.length + (page < data.totalPages ? 1 : 0),
                       separatorBuilder: (_, __) => const Divider(height: 1, indent: 78),
                       itemBuilder: (context, index) {
-                        if (matches.isEmpty) {
+                        if (matches.isEmpty && page >= data.totalPages) {
                           return Padding(
                             padding: const EdgeInsets.all(36),
                             child: Column(
