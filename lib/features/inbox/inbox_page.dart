@@ -327,32 +327,6 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                 },
               ),
             ),
-            result.when(
-              loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
-              data: (data) => Container(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  border: Border(top: BorderSide(color: theme.dividerColor)),
-                ),
-                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  IconButton(
-                    tooltip: 'Previous page',
-                    onPressed: page > 1 ? () => setState(() => page--) : null,
-                    icon: const Icon(Icons.chevron_left),
-                  ),
-                  Text('Page $page of ${data.totalPages}',
-                      style: theme.textTheme.labelMedium),
-                  IconButton(
-                    tooltip: 'Next page',
-                    onPressed: page < data.totalPages
-                        ? () => setState(() => page++) : null,
-                    icon: const Icon(Icons.chevron_right),
-                  ),
-                ]),
-              ),
-            ),
           ],
         ),
       ),
