@@ -107,7 +107,9 @@ class _InboxPageState extends ConsumerState<InboxPage> {
         setState(() { moreFailed = true; paginationError = 'Unable to load more conversations.'; });
       }
     } finally {
-      if (mounted && generation == listGeneration) setState(() => loadingMore = false);
+      if (mounted && generation == listGeneration) {
+        setState(() => loadingMore = false);
+      }
     }
   }
 
