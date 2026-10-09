@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_controller.dart';
+import 'readonly_catalog_pages.dart';
 
 /// Workspace settings directory. Unsupported mobile destinations are disabled.
 class MorePage extends ConsumerWidget {
@@ -41,7 +42,7 @@ class MorePage extends ConsumerWidget {
               ]),
             ),
             const SizedBox(height: 24),
-            const _MenuSection(
+            _MenuSection(
               title: 'Communication',
               items: [
                 _MenuItem('Providers', Icons.settings_input_component_outlined,
@@ -94,10 +95,11 @@ class MorePage extends ConsumerWidget {
 }
 
 class _MenuItem {
-  const _MenuItem(this.title, this.icon, this.subtitle);
+  const _MenuItem(this.title, this.icon, this.subtitle, {this.page});
   final String title;
   final IconData icon;
   final String subtitle;
+  final Widget? page;
 }
 
 class _MenuSection extends StatelessWidget {
@@ -137,9 +139,14 @@ class _MenuSection extends StatelessWidget {
                   )),
                 subtitle: Text(items[index].subtitle,
                   style: theme.textTheme.bodySmall),
-                trailing: Text('Soon', style: theme.textTheme.labelSmall?.copyWith(
-                  color: colors.onSurfaceVariant,
-                )),
+                trailing: items[index].page == null
+                    ? Text('Soon', style: theme.textTheme.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant))
+                    : const Icon(Icons.chevron_right_rounded),
+                onTap: items[index].page == null ? null : () => Navigator.push<void>(
+                  context,
+                  MaterialPageRoute(builder: (_) => items[index].page!),
+                ),
               ),
             ],
           ]),
