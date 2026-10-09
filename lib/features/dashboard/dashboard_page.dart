@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_controller.dart';
-import '../../core/theme/notiq_brand.dart';
-import '../../core/theme/notiq_theme.dart';
 import '../../core/widgets/notiq_metric_card.dart';
 import '../../core/widgets/notiq_page_state.dart';
 import 'dashboard_models.dart';
@@ -18,7 +16,7 @@ class DashboardPage extends ConsumerWidget {
     final metrics = ref.watch(dashboardMetricsProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const NotiqBrand(compact: true),
+        title: const SizedBox.shrink(),
         actions: [
           IconButton(
             tooltip: 'Refresh dashboard',
@@ -76,11 +74,6 @@ class _DashboardContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final total = metrics.total;
-    // A delivery percentage is not inferred: 'sent' may include messages
-    // whose delivery status hasn't been confirmed yet.
     return LayoutBuilder(
       builder: (context, constraints) {
         final horizontal = constraints.maxWidth >= 600 ? 24.0 : 16.0;
@@ -88,52 +81,71 @@ class _DashboardContent extends StatelessWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.fromLTRB(horizontal, 14, horizontal, 28),
           children: [
-            Text(
-              'Workspace overview',
-              style: theme.textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Your communication activity at a glance',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colors.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 20),
-            _HeroCard(total: total, sent: metrics.sent),
-            const SizedBox(height: 22),
             _SectionTitle(
               title: 'Message activity',
-              subtitle: 'Live figures from your workspace',
+              subtitle: 'Workspace totals',
             ),
             const SizedBox(height: 12),
             GridView.count(
-              crossAxisCount: constraints.maxWidth >= 600 ? 3 : 2,
-              childAspectRatio: 1.3,
+              crossAxisCount: 2,
+              childAspectRatio: constraints.maxWidth < 350 ? 1.08 : 1.28,
               mainAxisSpacing: 10,
               crossAxisSpacing: 10,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               children: [
                 NotiqMetricCard(
-                  label: 'Scheduled',
-                  value: '${metrics.scheduled}',
-                  icon: Icons.calendar_month_outlined,
+                  label: 'Total',
+                  value: NumberFormat.compact().format(metrics.total),
+                  icon: Icons.chat_bubble_outline_rounded,
                 ),
                 NotiqMetricCard(
-                  label: 'Pending',
-                  value: '${metrics.pending}',
-                  icon: Icons.schedule_rounded,
+                  label: 'Sent',
+                  value: NumberFormat.compact().format(metrics.sent),
+                  icon: Icons.check_circle_outline_rounded,
+                ),
+                NotiqMetricCard(
+                  label: 'Scheduled',
+                  value: NumberFormat.compact().format(metrics.scheduled),
+                  icon: Icons.calendar_today_outlined,
                 ),
                 NotiqMetricCard(
                   label: 'Failed',
-                  value: '${metrics.failed}',
+                  value: NumberFormat.compact().format(metrics.failed),
                   icon: Icons.error_outline_rounded,
                 ),
-                NotiqMetricCard(
-                  label: 'Can retry',
-                  value: '${metrics.retriableFailed}',
-                  icon: Icons.refresh_rounded,
+              ],
+            ),
+            const SizedBox(height: 22),
+            const _SectionTitle(
+              title: 'Quick actions',
+              subtitle: 'Pick up where you left off',
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _QuickAction(
+                    icon: Icons.campaign_outlined,
+                    label: 'Campaigns',
+                    onTap: () => context.go('/campaigns'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _QuickAction(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    label: 'Inbox',
+                    onTap: () => context.go('/inbox'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _QuickAction(
+                    icon: Icons.people_outline_rounded,
+                    label: 'Contacts',
+                    onTap: () => context.go('/contacts'),
+                  ),
                 ),
               ],
             ),
@@ -198,65 +210,42 @@ class _DashboardContent extends StatelessWidget {
   }
 }
 
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.total, required this.sent});
-  final int total;
-  final int sent;
+class _QuickAction extends StatelessWidget {
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      container: true,
-      label: 'Total messages $total. Sent $sent.',
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: NotiqTheme.violet,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.mark_chat_unread_outlined, color: Colors.white70, size: 19),
-                SizedBox(width: 9),
-                Text('TOTAL MESSAGES',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      letterSpacing: 1,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    )),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text('$total',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 40,
-                  height: 1.1,
-                  fontWeight: FontWeight.w800,
-                )),
-            const SizedBox(height: 18),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: .14),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.send_rounded, size: 16, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Text('$sent sent',
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ),
-          ],
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surface,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 88),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: theme.dividerColor),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 22, color: theme.colorScheme.primary),
+              const SizedBox(height: 8),
+              Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall),
+            ],
+          ),
         ),
       ),
     );
@@ -274,9 +263,14 @@ class _SectionTitle extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: theme.textTheme.titleLarge),
-        const SizedBox(height: 3),
-        Text(subtitle, style: theme.textTheme.bodySmall),
+        Text(
+          title,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
+          ),
+        ),
       ],
     );
   }
