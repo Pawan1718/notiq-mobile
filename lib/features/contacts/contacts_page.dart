@@ -13,6 +13,7 @@ class ContactsPage extends ConsumerStatefulWidget {
 class _ContactsPageState extends ConsumerState<ContactsPage> {
   final search = TextEditingController();
   String filter = '';
+  bool searchOpen = false;
   int page = 1;
   @override
   void dispose() {
@@ -22,124 +23,210 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
 
   void reload() =>
       ref.invalidate(contactListProvider((page: page, search: filter)));
+  Future<void> openCreate() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(builder: (_) => const ContactEditorPage()),
+    );
+    if (mounted) reload();
+  }
+
+  Future<void> openOrganizer(String type) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(builder: (_) => ContactOrganizePage(type: type)),
+    );
+    if (mounted) {
+      ref.invalidate(contactGroupsProvider);
+      ref.invalidate(contactTagsProvider);
+      reload();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final contacts =
-        ref.watch(contactListProvider((page: page, search: filter)));
+    final contacts = ref.watch(contactListProvider((page: page, search: filter)));
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Contacts'), actions: [
-        PopupMenuButton<String>(
-          tooltip: 'Manage contacts',
-          onSelected: (value) async {
-            if (value == 'groups' || value == 'tags') {
-              await Navigator.push(context, MaterialPageRoute<void>(
-                builder: (_) => ContactOrganizePage(type: value)));
-            } else if (value == 'import') {
-              await Navigator.push(context, MaterialPageRoute<void>(
-                builder: (_) => const ContactImportPage()));
-            }
-            if (mounted) reload();
-          },
-          itemBuilder: (_) => const [
-            PopupMenuItem(value: 'groups', child: Text('Groups')),
-            PopupMenuItem(value: 'tags', child: Text('Tags')),
-            PopupMenuItem(value: 'import', child: Text('Import contacts')),
-          ],
-        ),
-        IconButton(onPressed: reload, icon: const Icon(Icons.refresh)),
-        IconButton(
-            onPressed: () async {
-              await Navigator.push(
+      appBar: AppBar(
+        title: const Text('Contacts'),
+        actions: [
+          PopupMenuButton<String>(
+            tooltip: 'Contact actions',
+            icon: const Icon(Icons.more_vert_rounded),
+            onSelected: (value) async {
+              if (value == 'groups' || value == 'tags') {
+                await openOrganizer(value);
+              } else if (value == 'import') {
+                await Navigator.push<void>(
                   context,
-                  MaterialPageRoute<void>(
-                      builder: (_) => const ContactEditorPage()));
-              reload();
-            },
-            icon: const Icon(Icons.person_add_alt)),
-      ]),
-      body: SafeArea(top: false, child: Column(children: [
-        Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-            child: Align(alignment: Alignment.centerLeft,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Your contacts', style: Theme.of(context).textTheme.headlineSmall),
-                Text('People and messaging preferences', style: Theme.of(context).textTheme.bodySmall),
-              ]))),
-        Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            child: TextField(
-              controller: search,
-              decoration: InputDecoration(
-                  hintText: 'Search contacts',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: IconButton(
-                      onPressed: () {
-                        search.clear();
-                        setState(() {
-                          filter = '';
-                          page = 1;
-                        });
-                      },
-                      icon: const Icon(Icons.clear))),
-              onSubmitted: (value) => setState(() {
-                filter = value;
-                page = 1;
-              }),
-            )),
-        Expanded(
-            child: contacts.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, __) => Center(
-              child:
-                  FilledButton(onPressed: reload, child: const Text('Retry'))),
-          data: (data) => RefreshIndicator(
-              onRefresh: () async {
+                  MaterialPageRoute(builder: (_) => const ContactImportPage()),
+                );
+                if (mounted) reload();
+              } else if (value == 'refresh') {
                 reload();
-                await ref.read(
-                    contactListProvider((page: page, search: filter)).future);
-              },
-              child: ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-                for (final contact in data.items)
-                  ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                    leading: CircleAvatar(
-                        child: Text(contact.name.isEmpty
-                            ? '?'
-                            : contact.name[0].toUpperCase())),
-                    title: Text(
-                        contact.name.isEmpty ? contact.mobile : contact.name,
-                        maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(contact.mobile),
-                      if (contact.email.isNotEmpty) Text(contact.email,
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                      if (!contact.active) Text('Inactive',
-                        style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                    ]),
-                    trailing: contact.active
-                        ? const Icon(Icons.chevron_right)
-                        : const Icon(Icons.pause_circle_outline),
-                    onTap: () async {
-                      await Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  ContactEditorPage(id: contact.id)));
-                      reload();
-                    },
+              } else if (value == 'create') {
+                await openCreate();
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'create', child: Text('Add contact')),
+              PopupMenuItem(value: 'groups', child: Text('Create / manage groups')),
+              PopupMenuItem(value: 'tags', child: Text('Create / manage labels')),
+              PopupMenuItem(value: 'import', child: Text('Import contacts')),
+              PopupMenuDivider(),
+              PopupMenuItem(value: 'refresh', child: Text('Refresh')),
+            ],
+          ),
+        ],
+      ),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!searchOpen)
+            FloatingActionButton.small(
+              heroTag: 'contact-search',
+              tooltip: 'Search contacts',
+              onPressed: () => setState(() => searchOpen = true),
+              child: const Icon(Icons.search_rounded),
+            ),
+          const SizedBox(height: 10),
+          FloatingActionButton(
+            heroTag: 'contact-create',
+            tooltip: 'Add contact',
+            onPressed: openCreate,
+            child: const Icon(Icons.person_add_alt_rounded),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        top: false,
+        child: Column(children: [
+          if (searchOpen)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: TextField(
+                controller: search,
+                autofocus: true,
+                textInputAction: TextInputAction.search,
+                onSubmitted: (value) => setState(() {
+                  filter = value.trim();
+                  page = 1;
+                }),
+                decoration: InputDecoration(
+                  hintText: 'Search contacts',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: IconButton(
+                    tooltip: 'Close search',
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => setState(() {
+                      search.clear();
+                      filter = '';
+                      page = 1;
+                      searchOpen = false;
+                    }),
                   ),
-                if (data.items.isEmpty)
-                  const Padding(padding: EdgeInsets.all(36),
-                    child: Center(child: Text('No contacts found'))),
-                NotiqPagination(
-                  page: page,
-                  totalPages: data.totalPages,
-                  onPageChanged: (next) => setState(() => page = next),
                 ),
-              ])),
-        )),
-      ])),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+            child: Row(children: [
+              const Chip(label: Text('All contacts')),
+              const SizedBox(width: 8),
+              ActionChip(
+                avatar: const Icon(Icons.groups_outlined, size: 16),
+                label: const Text('Groups'),
+                onPressed: () => openOrganizer('groups'),
+              ),
+              const SizedBox(width: 8),
+              ActionChip(
+                avatar: const Icon(Icons.label_outline_rounded, size: 16),
+                label: const Text('Labels'),
+                onPressed: () => openOrganizer('tags'),
+              ),
+            ]),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: contacts.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, __) => Center(
+                child: FilledButton(onPressed: reload, child: const Text('Retry')),
+              ),
+              data: (data) => RefreshIndicator(
+                onRefresh: () async {
+                  reload();
+                  await ref.read(
+                    contactListProvider((page: page, search: filter)).future,
+                  );
+                },
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    for (final contact in data.items)
+                      Column(children: [
+                        ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 4),
+                          leading: CircleAvatar(
+                            backgroundColor: colors.primaryContainer,
+                            child: Text(
+                              contact.name.isEmpty
+                                  ? (contact.mobile.isEmpty ? '?' : contact.mobile[0])
+                                  : contact.name[0].toUpperCase(),
+                              style: TextStyle(color: colors.onPrimaryContainer,
+                                fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          title: Text(
+                            contact.name.isEmpty ? contact.mobile : contact.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(
+                            contact.mobile.isNotEmpty
+                                ? contact.mobile
+                                : contact.email,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall,
+                          ),
+                          trailing: contact.active
+                              ? const Icon(Icons.chevron_right_rounded)
+                              : Icon(Icons.pause_circle_outline_rounded,
+                                  color: colors.error),
+                          onTap: () async {
+                            await Navigator.push<void>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ContactEditorPage(id: contact.id),
+                              ),
+                            );
+                            if (mounted) reload();
+                          },
+                        ),
+                        const Divider(height: 1, indent: 72),
+                      ]),
+                    if (data.items.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(36),
+                        child: Center(child: Text('No contacts found')),
+                      ),
+                    NotiqPagination(
+                      page: page,
+                      totalPages: data.totalPages,
+                      onPageChanged: (next) => setState(() => page = next),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ]),
+      ),
     );
   }
 }
